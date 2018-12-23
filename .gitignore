@@ -1,0 +1,11 @@
+*
+!*/
+!/.gitignore
+!/LICENSE
+!/README.md
+!/tsconfig.json
+!/package.json
+!/package-lock.json
+!/src/*.ts
+!/test/*.ts
+
