@@ -9,6 +9,7 @@
     "doc": "$(npm bin)/typedoc --out doc ./src/",
     "watch": "$(npm bin)/tsc -w -p ./",
     "test": "$(npm bin)/mocha $(find ./out/test -name '*.js')",
+    "check-format": "$(npm bin)/tslint $(find ./src -name '*.ts') $(find ./test -name '*.ts')",
     "lint": "$(npm bin)/tslint --fix $(find ./src -name '*.ts') $(find ./test -name '*.ts')"
   },
   "repository": {
