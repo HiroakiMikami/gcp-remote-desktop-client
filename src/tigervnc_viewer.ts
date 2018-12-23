@@ -1,6 +1,5 @@
-import { spawn } from 'child_process'
-
 import { VncViewer } from "./vnc_viewer"
+import { toFunction, doNothing } from './utils'
 
 export interface Options {
     passwordFile?: string
@@ -14,20 +13,7 @@ export class TigervncViewer implements VncViewer<Options> {
     private vncViewerCommand: VncViewerCommand
     constructor(vncViewerCommand: string | VncViewerCommand = "vncviewer") {
         if (typeof(vncViewerCommand) === 'string') {
-            this.vncViewerCommand = args => {
-                return new Promise((resolve) => {
-                    const ssh = spawn(vncViewerCommand, args, {shell: true})
-                    ssh.stdout.pipe(process.stdout)
-                    ssh.stderr.pipe(process.stderr)
-                    ssh.on('exit', (code, signal) => {
-                        if (code == 0) {
-                            resolve(null)
-                        } else {
-                            resolve(new Error(`vncviewer command (${vncViewerCommand} ${args.join(" ")} exits with code ${code}(${signal}`))
-                        }
-                    })
-                })
-            }
+            this.vncViewerCommand = toFunction(vncViewerCommand, doNothing)
         } else {
             this.vncViewerCommand = vncViewerCommand
         }

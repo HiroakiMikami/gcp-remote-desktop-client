@@ -1,6 +1,5 @@
-import { spawn } from 'child_process'
-
 import { SshClient } from './ssh_client'
+import { toFunction, doNothing } from './utils'
 
 export interface Options {
     identityFile: string | null
@@ -12,20 +11,7 @@ export class Openssh implements SshClient<Options> {
     private sshCommand: SshCommand
     constructor(sshCommand: string | SshCommand = "ssh") {
         if (typeof(sshCommand) === 'string') {
-            this.sshCommand = args => {
-                return new Promise((resolve) => {
-                    const ssh = spawn(sshCommand, args, {shell: true})
-                    ssh.stdout.pipe(process.stdout)
-                    ssh.stderr.pipe(process.stderr)
-                    ssh.on('exit', (code, signal) => {
-                        if (code == 0) {
-                            resolve(null)
-                        } else {
-                            resolve(new Error(`ssh command (${sshCommand} ${args.join(" ")} exits with code ${code}(${signal}`))
-                        }
-                    })
-                })
-            }
+            this.sshCommand = toFunction(sshCommand, doNothing)
         } else {
             this.sshCommand = sshCommand
         }
