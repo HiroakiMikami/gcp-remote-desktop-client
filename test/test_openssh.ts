@@ -13,7 +13,7 @@ describe('Openssh', () => {
                 ])
                 return Promise.resolve(null)
             })
-            return command.portForward(22, "user", "localhost", 1022, 8022, {identityFile: null })
+            return command.portForward(22, "user", "localhost", 1022, 8022, {})
         })
         it('add identity file to command line arguments if identityFile is not null', () => {
             const command = new Openssh(args => {
@@ -28,14 +28,14 @@ describe('Openssh', () => {
         })
         it('return null code if the command exists', () => {
             const command = new Openssh(":")
-            const retval = command.portForward(22, "user", "localhost", 22, 8022, {identityFile: null })
+            const retval = command.portForward(22, "user", "localhost", 22, 8022, {})
             return retval.then(error => {
                 should.not.exist(error)
             })
         })
         it('return exit code if the command is not found', () => {
             const command = new Openssh("./not-found")
-            const retval = command.portForward(22, "user", "localhost", 22, 8022, {identityFile: null })
+            const retval = command.portForward(22, "user", "localhost", 22, 8022, {})
             return retval.then(error => {
                 should.exist(error)
             })

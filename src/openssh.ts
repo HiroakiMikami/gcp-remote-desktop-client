@@ -2,7 +2,7 @@ import { SshClient } from './ssh_client'
 import { toFunction, doNothing } from './utils'
 
 export interface Options {
-    identityFile: string | null
+    identityFile?: string
 }
 
 type SshCommand = (options: ReadonlyArray<string>) => Promise<Error | null>
@@ -21,7 +21,7 @@ export class Openssh implements SshClient<Options> {
                          "-p", `${port}`,
                          "-L", `${from}:localhost:${to}`,
                          "-l", username]
-        if (options.identityFile != null) {
+        if (options.identityFile !== undefined) {
             args.push("-i")
             args.push(`${options.identityFile}`)
         }
