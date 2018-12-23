@@ -8,7 +8,8 @@
     "compile": "$(npm bin)/tsc -p ./",
     "doc": "$(npm bin)/typedoc --out doc ./src/",
     "watch": "$(npm bin)/tsc -w -p ./",
-    "test": "$(npm bin)/mocha $(find ./out/test -name '*.js')"
+    "test": "$(npm bin)/mocha $(find ./out/test -name '*.js')",
+    "lint": "$(npm bin)/tslint --fix $(find ./src -name '*.ts') $(find ./test -name '*.ts')"
   },
   "repository": {
     "type": "git",
@@ -25,6 +26,7 @@
     "@types/mocha": "^5.2.0",
     "chai": "^4.1.2",
     "mocha": "^5.1.1",
+    "tslint": "^5.12.0",
     "typedoc": "^0.11.1",
     "typemoq": "^2.1.0",
     "typescript": "^3.2.2"
