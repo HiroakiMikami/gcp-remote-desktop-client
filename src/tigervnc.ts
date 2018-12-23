@@ -1,7 +1,7 @@
-import { VncViewer } from "./vnc_viewer"
+import { IVncViewer } from "./vnc_viewer"
 import { toFunction, doNothing } from './utils'
 
-export interface Options {
+export interface IOptions {
     passwordFile?: string
     compressLevel?: number
     qualityLevel?: number
@@ -9,7 +9,7 @@ export interface Options {
 
 type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<Error | null>
 
-export class TigervncViewer implements VncViewer<Options> {
+export class VncViewer implements IVncViewer<IOptions> {
     private vncViewerCommand: VncViewerCommand
     constructor(vncViewerCommand: string | VncViewerCommand = "vncviewer") {
         if (typeof(vncViewerCommand) === 'string') {
@@ -18,7 +18,7 @@ export class TigervncViewer implements VncViewer<Options> {
             this.vncViewerCommand = vncViewerCommand
         }
     }
-    connect(port: number, options: Options): Promise<Error> {
+    connect(port: number, options: IOptions): Promise<Error> {
         let args = []
         if (options.passwordFile !== undefined) {
             args.push("-PasswordFile")

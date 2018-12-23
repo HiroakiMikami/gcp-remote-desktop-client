@@ -1,13 +1,13 @@
-import { SshClient } from './ssh_client'
+import { ISshClient } from './ssh_client'
 import { toFunction, doNothing } from './utils'
 
-export interface Options {
+export interface IOptions {
     identityFile?: string
 }
 
 type SshCommand = (options: ReadonlyArray<string>) => Promise<Error | null>
 
-export class Openssh implements SshClient<Options> {
+export class SshClient implements ISshClient<IOptions> {
     private sshCommand: SshCommand
     constructor(sshCommand: string | SshCommand = "ssh") {
         if (typeof(sshCommand) === 'string') {
@@ -16,7 +16,7 @@ export class Openssh implements SshClient<Options> {
             this.sshCommand = sshCommand
         }
     }
-    portForward(port: number, username: string, hostname: string, from: number, to: number, options: Options): Promise<Error> {
+    portForward(port: number, username: string, hostname: string, from: number, to: number, options: IOptions): Promise<Error> {
         let args = ["-o", "StrictHostKeyChecking=no",
                          "-p", `${port}`,
                          "-L", `${from}:localhost:${to}`,
