@@ -1,31 +1,32 @@
-import { ISshClient } from './ssh_client'
-import { toFunction, doNothing } from './utils'
+import { ISshClient } from "./ssh_client";
+import { doNothing, toFunction } from "./utils";
 
 export interface IOptions {
-    identityFile?: string
+    identityFile?: string;
 }
 
-type SshCommand = (options: ReadonlyArray<string>) => Promise<Error | null>
+type SshCommand = (options: ReadonlyArray<string>) => Promise<Error | null>;
 
 export class SshClient implements ISshClient<IOptions> {
-    private sshCommand: SshCommand
+    private sshCommand: SshCommand;
     constructor(sshCommand: string | SshCommand = "ssh") {
-        if (typeof(sshCommand) === 'string') {
-            this.sshCommand = toFunction(sshCommand, doNothing)
+        if (typeof(sshCommand) === "string") {
+            this.sshCommand = toFunction(sshCommand, doNothing);
         } else {
-            this.sshCommand = sshCommand
+            this.sshCommand = sshCommand;
         }
     }
-    portForward(port: number, username: string, hostname: string, from: number, to: number, options: IOptions): Promise<Error> {
-        let args = ["-o", "StrictHostKeyChecking=no",
+    public portForward(port: number, username: string, hostname: string, from: number, to: number,
+                       options: IOptions): Promise<Error> {
+        const args = ["-o", "StrictHostKeyChecking=no",
                          "-p", `${port}`,
                          "-L", `${from}:localhost:${to}`,
-                         "-l", username]
+                         "-l", username];
         if (options.identityFile !== undefined) {
-            args.push("-i")
-            args.push(`${options.identityFile}`)
+            args.push("-i");
+            args.push(`${options.identityFile}`);
         }
-        args.push(hostname)
-        return this.sshCommand(args)
+        args.push(hostname);
+        return this.sshCommand(args);
     }
 }
