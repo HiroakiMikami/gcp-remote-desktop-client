@@ -4,6 +4,7 @@
 !/LICENSE
 !/README.md
 !/tsconfig.json
+!/tslint.json
 !/package.json
 !/package-lock.json
 !/src/*.ts
