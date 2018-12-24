@@ -20,7 +20,7 @@ export class SshClient implements ISshClient<IOptions> {
                        options: IOptions): Promise<Error> {
         const args = ["-o", "StrictHostKeyChecking=no",
                          "-p", `${port}`,
-                         "-L", `${from}:localhost:${to}`,
+                         "-L", `${to}:localhost:${from}`,
                          "-l", username]
         if (options.identityFile !== undefined) {
             args.push("-i")

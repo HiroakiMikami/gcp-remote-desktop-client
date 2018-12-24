@@ -8,7 +8,7 @@ describe("SshClient", () => {
         it("creates command line arguments for SshClient", () => {
             const command = new SshClient((args) => {
                 args.should.deep.equal([
-                    "-o", "StrictHostKeyChecking=no", "-p", "22", "-L", "1022:localhost:8022",
+                    "-o", "StrictHostKeyChecking=no", "-p", "22", "-L", "8022:localhost:1022",
                     "-l", "user", "localhost",
                 ])
                 return Promise.resolve(null)
@@ -18,7 +18,7 @@ describe("SshClient", () => {
         it("add identity file to command line arguments if identityFile is not null", () => {
             const command = new SshClient((args) => {
                 args.should.deep.equal([
-                    "-o", "StrictHostKeyChecking=no", "-p", "22", "-L", "1022:localhost:8022",
+                    "-o", "StrictHostKeyChecking=no", "-p", "22", "-L", "8022:localhost:1022",
                     "-l", "user", "-i", "~/.ssh/id_rsa", "localhost",
                 ])
                 return Promise.resolve(null)
