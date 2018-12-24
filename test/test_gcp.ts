@@ -106,7 +106,8 @@ describe("Cloud", () => {
                 history[0].should.deep.equal([
                     "compute", "instances", "stop",
                     "test"])
-                history[1].should.deep.equal(["compute", "instances", "delete", "--keep-disks", "all", "test"])
+                history[1].should.deep.equal(["--quiet", "compute", "instances", "delete",
+                    "--keep-disks", "all", "test"])
             })
         })
         it("specify the zone", () => {
@@ -121,7 +122,7 @@ describe("Cloud", () => {
                     "compute", "instances", "stop",
                     "--zone=zone",
                     "test"])
-                history[1].should.deep.equal(["compute", "instances", "delete",
+                history[1].should.deep.equal(["--quiet", "compute", "instances", "delete",
                     "--keep-disks", "all", "--zone=zone", "test"])
             })
         })
