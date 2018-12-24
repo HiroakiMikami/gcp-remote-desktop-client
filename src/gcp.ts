@@ -56,7 +56,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             const tmp = options.machineType as ICustumMachineType
             machineType = `custum-${tmp.vCPU}-${tmp.memory * 1024}`
         }
-        if (options.accelerators !== undefined) {
+        if (options.accelerators !== undefined && options.accelerators.length !== 0) {
             for (const accelerator of options.accelerators) {
                 createArgs.push("--accelerator")
                 createArgs.push(`type=${accelerator.deviceType},count=${accelerator.count}`)
