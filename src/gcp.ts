@@ -66,7 +66,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             createArgs.push("--preemptible")
         }
         createArgs.push(`--machine-type=${machineType}`)
-        createArgs.push(`--disk-name=${name},device-name=${name},mode=rw,boot=yes`)
+        createArgs.push(`--disk=name=${name},device-name=${name},mode=rw,boot=yes`)
 
         return this.gcloudCommand(createArgs).then((result) => {
             if (result instanceof Error) {
