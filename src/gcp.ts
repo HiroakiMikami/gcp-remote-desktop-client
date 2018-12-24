@@ -86,7 +86,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
     }
     public terminateMachine(name: string, options: IOptions): Promise<Error | null> {
         const stopArgs = ["compute", "instances", "stop"]
-        const deleteArgs = ["compute", "instances", "delete"]
+        const deleteArgs = ["compute", "instances", "delete", "--keep-disks", "all"]
         if (options.zone !== undefined) {
             stopArgs.push(`--zone=${options.zone}`)
             deleteArgs.push(`--zone=${options.zone}`)
