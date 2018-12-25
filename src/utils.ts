@@ -50,58 +50,27 @@ export function retry<Result>(procedure: () => Promise<Result>, duration: number
     return execute(procedure())
 }
 
-type GetResult<Result> =
-    (commandName: string, args: ReadonlyArray<string>, command: ChildProcess)
-        => Promise<Result>
-
-export const getChildProcess: GetResult<ChildProcess> = (cmd, args, p) => {
-    p.stdout.pipe(process.stdout)
-    p.stderr.pipe(process.stderr)
-    return new Promise((resolve, reject) => {
-        p.on("exit", (code, signal) => {
-            if (code === 0) {
-                resolve(p)
+export function toFunction<Result>(command: string,
+                                   convert: (stdout: string, p: ChildProcess) => Result,
+                                   useStdout: boolean = false) {
+    return (args: ReadonlyArray<string>)  => {
+        console.error(command, args)
+        return new Promise<Result>((resolve, reject) => {
+            const p = spawn(command, args, {shell: true})
+            let stdout = ""
+            if (useStdout) {
+                p.stdout.on("data", (data) => stdout += data.toString())
             } else {
-                reject(new Error(`command (${cmd} ${args.join(" ")} exits with code ${code}(${signal})`))
+                p.stdout.pipe(process.stdout)
             }
-        })
-    })
-}
-export const doNothing: GetResult<null> = (cmd, args, p) => {
-    p.stdout.pipe(process.stdout)
-    p.stderr.pipe(process.stderr)
-    return new Promise((resolve, reject) => {
-        p.on("exit", (code, signal) => {
-            if (code === 0) {
-                resolve(null)
-            } else {
-                reject(new Error(`command (${cmd} ${args.join(" ")} exits with code ${code}(${signal})`))
-            }
-        })
-    })
-}
-export function getResultFromStdout<Result>(getResult: (stdout: string) => Result): GetResult<Result> {
-    return (cmd, args, p) => {
-        let stdout = ""
-        p.stdout.on("data", (data) => stdout += data.toString())
-        p.stderr.pipe(process.stderr)
-
-        return new Promise((resolve, reject) => {
+            p.stderr.pipe(process.stderr)
             p.on("exit", (code, signal) => {
                 if (code === 0) {
-                    resolve(getResult(stdout))
+                    resolve(convert(stdout, p))
                 } else {
-                    reject(new Error(`command (${cmd} ${args.join(" ")} exits with code ${code}(${signal})`))
+                    reject(new Error(`command (${command} ${args.join(" ")} exits with code ${code}(${signal})`))
                 }
             })
         })
-    }
-}
-
-export function toFunction<Result>(command: string, getResult: GetResult<Result>) {
-    return (args: ReadonlyArray<string>)  => {
-        console.error(command, args)
-        const process = spawn(command, args, {shell: true})
-        return getResult(command, args, process)
     }
 }

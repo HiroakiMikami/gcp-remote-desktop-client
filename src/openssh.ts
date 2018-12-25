@@ -3,7 +3,7 @@ import { Command } from "commander"
 import * as os from "os"
 import * as path from "path"
 import { ISshClient, ISshClientBuilder, OnExit } from "./ssh_client"
-import { backupFile, getChildProcess, parseIntWithDefaultValue, retry, toFunction } from "./utils"
+import { backupFile, parseIntWithDefaultValue, retry, toFunction } from "./utils"
 
 export interface IOptions {
     identityFile?: string
@@ -16,7 +16,7 @@ export class SshClient implements ISshClient<IOptions> {
     constructor(sshCommand: string | SshCommand = "ssh", private timeoutTime: number = 0,
                 private knownHostsPath = path.join(os.homedir(), ".ssh", "known_hosts")) {
         if (typeof(sshCommand) === "string") {
-            this.sshCommand = toFunction(sshCommand, getChildProcess)
+            this.sshCommand = toFunction(sshCommand, (_, p) => p)
         } else {
             this.sshCommand = sshCommand
         }
