@@ -3,6 +3,8 @@
 import { Command } from "commander"
 import * as log4js from "log4js"
 import * as os from "os"
+import * as path from "path"
+import { load, merge } from "./configurations"
 import * as GCP from "./gcp"
 import * as OpenSSH from "./openssh"
 import { OnExit } from "./ssh_client"
@@ -12,15 +14,28 @@ import { parseIntWithDefaultValue } from "./utils"
 const logger = log4js.getLogger()
 
 async function main() {
+    const configDir =
+        process.env.CLOUD_LINUX_DESKTOP_CLIENT_GLOBAL_CONFIG_DIR ||
+            path.join(os.homedir(), ".config", "cloud-linux-desktop-client")
+    const globalConfigPath = path.join(configDir, "global_config.json")
+    logger.info(`global config file: ${globalConfigPath}`)
+    logger.info(`Load the global config file: ${globalConfigPath}`)
+
+    const tmpGlobalConfig = await load(globalConfigPath)
+    const globalConfig = merge({ ssh: "OpenSSH", vncviewer: "TigerVNC", cloud: "GCP", logLevel: "info" },
+        tmpGlobalConfig)
+
     const backendOptions = new Command()
     const args = await new Promise<string[]>((resolve) => {
         backendOptions
             .version("0.0.1")
             .usage("[backend-options] -- [args]")
-            .option("--ssh <ssh-backend>", "the backend of ssh", "OpenSSH")
-            .option("--vncviewer <vncviewer-backend>", "the backend of vncviewer", "TigerVNC")
-            .option("--cloud <cloud-service>", "the cloud service", "GCP")
-            .option("--log-level <level>", "One of followings: [trace, debug, info, warn, error, fatal]", "info")
+            .option("--ssh <ssh-backend>", "the backend of ssh", globalConfig.ssh)
+            .option("--vncviewer <vncviewer-backend>", "the backend of vncviewer", globalConfig.vncviewer)
+            .option("--cloud <cloud-service>", "the cloud service", globalConfig.cloud)
+            .option("--log-level <level>",
+                    "One of followings: [trace, debug, info, warn, error, fatal]",
+                    globalConfig["log-level"])
             .on("command:*", (xs) => {
                 xs.unshift(process.argv[1])
                 xs.unshift(process.argv[0])
