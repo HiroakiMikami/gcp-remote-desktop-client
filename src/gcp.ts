@@ -1,6 +1,6 @@
 import { Command } from "commander"
 import { ICloud, ICloudBuilder } from "./cloud"
-import { toFunction } from "./utils"
+import { Executable } from "./executable"
 
 export interface IOptions {
     zone?: string
@@ -32,8 +32,12 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
     private gcloudCommandWithStdout: (options: ReadonlyArray<string>) => Promise<string>
     constructor(gcloudCommand: string | GcloudCommand = "gcloud") {
         if (typeof(gcloudCommand) === "string") {
-            this.gcloudCommand = toFunction(gcloudCommand, () => null)
-            this.gcloudCommandWithStdout = toFunction(gcloudCommand, (stdout) => stdout, true)
+            const gcloud = new Executable(gcloudCommand)
+            this.gcloudCommand = (args: string[]) => gcloud.execute(args).then(() => null)
+            this.gcloudCommandWithStdout = async (args: string[]) => {
+                const result = await gcloud.execute(args, true)
+                return result.stdout
+            }
         } else {
             this.gcloudCommand = async (args) => {
                 await gcloudCommand(args)

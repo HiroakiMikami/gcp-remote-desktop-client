@@ -1,7 +1,7 @@
 import { Command } from "commander"
 import * as os from "os"
 import * as path from "path"
-import { toFunction } from "./utils"
+import { Executable } from "./executable"
 import { IVncViewer, IVncViewerBuilder } from "./vnc_viewer"
 
 export interface IOptions {
@@ -16,7 +16,8 @@ export class VncViewer implements IVncViewer<IOptions> {
     private vncViewerCommand: VncViewerCommand
     constructor(vncViewerCommand: string | VncViewerCommand = "vncviewer") {
         if (typeof(vncViewerCommand) === "string") {
-            this.vncViewerCommand = toFunction(vncViewerCommand, () => null)
+            const vncviewer = new Executable(vncViewerCommand)
+            this.vncViewerCommand = (args: string[]) => vncviewer.execute(args).then(() => null)
         } else {
             this.vncViewerCommand = vncViewerCommand
         }

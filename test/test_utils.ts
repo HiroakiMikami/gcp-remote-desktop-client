@@ -3,7 +3,7 @@ import * as fs from "fs"
 import * as tmp from "tmp"
 const should = chai.should()
 
-import { backupFile, retry, toFunction } from "../src/utils"
+import { backupFile, retry } from "../src/utils"
 
 describe("#backupFile", () => {
     it("restore the content of file", async () => {
@@ -46,13 +46,5 @@ describe("#retry", () => {
             return null
         }
         should.exist(null) // Failure
-    })
-})
-
-describe("#toFunction", () => {
-    it("use the argument as an executable command", async () => {
-        const f = toFunction("echo", (stdout) => stdout, true)
-        const result = await f(["value"])
-        result.should.equal("value\n")
     })
 })

@@ -2,8 +2,9 @@ import { ChildProcess } from "child_process"
 import { Command } from "commander"
 import * as os from "os"
 import * as path from "path"
+import { Executable } from "./executable"
 import { ISshClient, ISshClientBuilder, OnExit } from "./ssh_client"
-import { backupFile, parseIntWithDefaultValue, retry, toFunction } from "./utils"
+import { backupFile, parseIntWithDefaultValue, retry } from "./utils"
 
 export interface IOptions {
     identityFile?: string
@@ -16,7 +17,8 @@ export class SshClient implements ISshClient<IOptions> {
     constructor(sshCommand: string | SshCommand = "ssh", private timeoutTime: number = 0,
                 private knownHostsPath = path.join(os.homedir(), ".ssh", "known_hosts")) {
         if (typeof(sshCommand) === "string") {
-            this.sshCommand = toFunction(sshCommand, (_, p) => p)
+            const ssh = new Executable(sshCommand)
+            this.sshCommand = (args: string[]) => ssh.execute(args).then((result) => result.process)
         } else {
             this.sshCommand = sshCommand
         }
