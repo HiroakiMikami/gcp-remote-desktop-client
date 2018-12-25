@@ -83,7 +83,12 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
         if (options.zone !== undefined) {
             args.push(`--zones=${options.zone}`)
         }
-        return this.gcloudCommandWithStdout(args)
+        return this.gcloudCommandWithStdout(args).then((result) => {
+            if (result instanceof Error) {
+                return result
+            }
+            return result.split("\n")[0]
+        })
     }
     public terminateMachine(name: string, options: IOptions): Promise<Error | null> {
         const stopArgs = ["compute", "instances", "stop"]
