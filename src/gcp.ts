@@ -1,4 +1,5 @@
-import { ICloud } from "./cloud"
+import { Command } from "commander"
+import { ICloud, ICloudBuilder } from "./cloud"
 import { doNothing, getResultFromStdout, toFunction } from "./utils"
 
 export interface IOptions {
@@ -99,5 +100,59 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             }
             return this.gcloudCommand(deleteArgs)
         })
+    }
+}
+
+export class CloudBuilder implements ICloudBuilder {
+    public commandLineArguments(command: Command): Command {
+        return command
+            .option("--gcloud-path <command>", "The path of `gcloud` command", "gcloud")
+            .option("--machine-type <machine_type>", "The machine type", undefined)
+            .option("--vcpu <n>", "The number of CPUs", undefined)
+            .option("--memory <n>", "The required memory [GB]", undefined)
+            .option("--accelerator [type=count,...]", "The accelerator", "")
+            .option("--preemptible", "Use preemptible VM", false)
+            .option("--zone <zone>", "The zone", undefined)
+    }
+    public create(command: Command): ICloud<void, void, void> {
+        const cloud = new Cloud(command.gclouPath)
+        return {
+            createMachine(name: string, _: void): Promise<Error | null> {
+                /* Get machine type */
+                let machineType: string | ICustumMachineType | null = null
+                if (command.machineType !== undefined) {
+                    machineType = command.machineType
+                } else if (command.vcpu !== undefined && command.memory !== undefined) {
+                    machineType = { vCPU: command.vcpu, memory: command.memory }
+                } else {
+                    return Promise.resolve(new Error("No machine type is specified"))
+                }
+
+                /* Get accerelator */
+                const accelerators = []
+                try {
+                    const xs = command.accelerator.split(",")
+                    for (const x of xs) {
+                        if (x.length === 0) { continue }
+                        const [type, count] = x.split("=")
+                        accelerators.push({ deviceType: type, count: parseInt(count, 10) })
+                    }
+                } catch (error) {
+                    return Promise.resolve(error)
+                }
+                return cloud.createMachine(name, {
+                    accelerators,
+                    machineType,
+                    preemptible: command.preemptible,
+                    zone: command.zone,
+                })
+            },
+            getPublicIpAddress(name: string, _: void): Promise<Error | string> {
+                return cloud.getPublicIpAddress(name, {zone: command.zone})
+            },
+            terminateMachine(name: string, _: void): Promise<Error | null> {
+                return cloud.terminateMachine(name, {zone: command.zone})
+            },
+        }
     }
 }
