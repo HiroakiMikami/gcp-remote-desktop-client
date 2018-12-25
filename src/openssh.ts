@@ -20,6 +20,7 @@ export class SshClient implements ISshClient<IOptions> {
     public portForward(port: number, username: string, hostname: string, from: number, to: number,
                        options: IOptions): Promise<Error> {
         const args = ["-o", "StrictHostKeyChecking=no",
+                        "-fNT",
                          "-p", `${port}`,
                          "-L", `${to}:localhost:${from}`,
                          "-l", username]
