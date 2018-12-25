@@ -9,7 +9,7 @@ export interface IOptions {
     identityFile?: string
 }
 
-type SshCommand = (options: ReadonlyArray<string>) => Promise<Error | ChildProcess>
+type SshCommand = (options: ReadonlyArray<string>) => Promise<ChildProcess>
 
 export class SshClient implements ISshClient<IOptions> {
     private sshCommand: SshCommand
@@ -22,7 +22,7 @@ export class SshClient implements ISshClient<IOptions> {
         }
     }
     public portForward(port: number, username: string, hostname: string, from: number, to: number,
-                       options: IOptions): Promise<Error | OnExit> {
+                       options: IOptions): Promise<OnExit> {
         const args = ["-o", "StrictHostKeyChecking=no",
                         "-fNT",
                          "-p", `${port}`,
@@ -34,21 +34,15 @@ export class SshClient implements ISshClient<IOptions> {
         }
         args.push(hostname)
 
-        let restoreFile: () => Promise<Error | null> | null = null
+        let restoreFile: () => Promise<null> | null = null
         /* Load known_hosts */
         return backupFile(this.knownHostsPath)
         .then((result) => {
             /* Port forward */
-            if (result instanceof Error) {
-                return result
-            }
             restoreFile = result
 
             return retry(() => this.sshCommand(args), this.timeoutTime)
-        }).then((result: Error | ChildProcess) => {
-            if (result instanceof Error) {
-                return result
-            }
+        }).then((result: ChildProcess) => {
             return (() => {
                 if (result !== null) {
                     result.kill() // Finish
@@ -72,7 +66,7 @@ export class SshClientBuilder implements ISshClientBuilder {
         const client = new SshClient(command.sshPath, command.sshTimeoutTime)
         return {
             portForward(port: number, username: string, hostname: string, from: number, to: number,
-                        _: void): Promise<Error | OnExit> {
+                        _: void): Promise<OnExit> {
                 return client.portForward(port, username, hostname, from, to, { identityFile: command.identityFile})
             },
         }

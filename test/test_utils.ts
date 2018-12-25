@@ -38,16 +38,14 @@ describe("#retry", () => {
             if (cnt === 10) {
                 return Promise.resolve(cnt)
             } else {
-                return Promise.resolve(new Error(""))
+                return Promise.reject(new Error(""))
             }
         }
         return retry<number>(f, 1000).then((result) => result.should.equal(10))
     })
     it("fail when timeout", () => {
-        const f = () => {
-            return Promise.resolve(new Error(""))
-        }
-        return retry<number>(f, 0).then((result) => (result as Error).message.should.deep.equal(""))
+        const f = () => Promise.reject(new Error(""))
+        return retry<number>(f, 0).catch((result) => result.message.should.deep.equal(""))
     })
 })
 

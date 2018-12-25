@@ -87,49 +87,36 @@ new Promise((resolve) => {
     const cloud = getCloudBuilder().create(command)
 
     /* Create VM */
-    cloud.createMachine(name, null).then((result) => {
-        if (result instanceof Error) {
-            return result
-        }
-
+    let onExit: OnExit | null = null
+    cloud.createMachine(name, null).then((_) => {
         /* Get public IP address */
         return cloud.getPublicIpAddress(name, null)
-    }).then((result) => {
-        if (result instanceof Error) {
-            return result
-        }
-
+    }).then((ip) => {
         /* SSH port forwarding */
         let localPort = command.localPort
         if (localPort < 0) {
             localPort = port
         }
-        return ssh.portForward(command.port, command.loginName, result,
+        return ssh.portForward(command.port, command.loginName, ip,
                             port, localPort,
-                            null)
-    }).then(((result) => {
-        if (result instanceof Error) {
-            return Promise.resolve(result)
-        }
-
+                            null).then((result) => {
+                                onExit = result
+                                return Promise.resolve(null)
+                            })
+    }).then((_) => {
         /* Connect to VM via vncviewer */
         let localPort = command.localPort
         if (localPort < 0) {
             localPort = port
         }
-        return vncviewer.connect(localPort, null).then((r) => {
-            if (r instanceof Error) {
-                console.log(r)
-            }
-            return result
+        return vncviewer.connect(localPort, null).catch((err) => {
+            console.error(err)
         })
-    }) as (result: Error | OnExit) => Promise<Error | OnExit>).then((result) => {
-        if (result instanceof Error) {
-            console.log(result)
-        }
-
+    }).catch((err) => {
+        console.log(err)
+    }).then((_) => {
         /* Stop port forwarding */
-        (result as OnExit)()
+        onExit()
         /* Terimnate VM */
         return cloud.terminateMachine(name, null)
     })

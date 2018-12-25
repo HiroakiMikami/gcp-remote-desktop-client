@@ -29,12 +29,14 @@ describe("VncViewer", () => {
                 should.not.exist(error)
             })
         })
-        it("return exit code if the command is not found", () => {
+        it("reject with an error if the command is not found", () => {
             const command = new VncViewer("./not-found")
             const retval = command.connect(5901, {})
-            return retval.then((error) => {
+            let isCaught = false
+            return retval.catch((error) => {
                 should.exist(error)
-            })
+                isCaught = true
+            }).then((_) => isCaught.should.equal(true))
         })
     })
 })

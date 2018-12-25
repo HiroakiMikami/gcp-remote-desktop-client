@@ -147,10 +147,12 @@ describe("Cloud", () => {
             should.not.exist(error)
         })
     })
-    it("return an error if the command is not found", () => {
+    it("reject with an error if the command is not found", () => {
         const gcp = new Cloud("./not-found")
-        return gcp.terminateMachine("name", {}).then((error) => {
+        let isCaught = false
+        return gcp.terminateMachine("name", {}).catch((error) => {
             should.exist(error)
-        })
+            isCaught = true
+        }).then((_) => isCaught.should.equal(true))
     })
 })

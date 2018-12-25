@@ -10,7 +10,7 @@ export interface IOptions {
     qualityLevel?: number
 }
 
-type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<Error | null>
+type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<null>
 
 export class VncViewer implements IVncViewer<IOptions> {
     private vncViewerCommand: VncViewerCommand
@@ -21,7 +21,7 @@ export class VncViewer implements IVncViewer<IOptions> {
             this.vncViewerCommand = vncViewerCommand
         }
     }
-    public connect(port: number, options: IOptions): Promise<Error> {
+    public connect(port: number, options: IOptions): Promise<null> {
         const args = []
         if (options.passwordFile !== undefined) {
             args.push("-PasswordFile")
@@ -52,7 +52,7 @@ export class VncViewerBuilder implements IVncViewerBuilder {
     public create(command: Command): IVncViewer<void> {
         const viewer = new VncViewer(command.vncviewer_path)
         return {
-            connect(port: number, _: void): Promise<Error> {
+            connect(port: number, _: void): Promise<null> {
                 return viewer.connect(port, {
                     compressLevel: command.compressLevel,
                     passwordFile: command.passwordFile,

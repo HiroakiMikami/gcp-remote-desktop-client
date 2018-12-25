@@ -36,12 +36,14 @@ describe("SshClient", () => {
                 (`${typeof(onexit)}`).toString().should.equal("function")
             })
         })
-        it("return exit code if the command is not found", () => {
+        it("reject with an error if the command is not found", () => {
             const command = new SshClient("./not-found")
             const retval = command.portForward(22, "user", "localhost", 22, 8022, {})
-            return retval.then((error) => {
+            let isCaught = false
+            return retval.catch((error) => {
                 should.exist(error)
-            })
+                isCaught = true
+            }).then((_) => isCaught.should.equal(true))
         })
         it("backup known_hosts file", () => {
             const tmpFile = tmp.fileSync()

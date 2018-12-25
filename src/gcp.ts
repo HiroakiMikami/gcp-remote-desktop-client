@@ -25,26 +25,21 @@ export interface ICreateMachineOptions extends IOptions {
     tags?: ReadonlyArray<string>
 }
 
-type GcloudCommandWithStdout = (options: ReadonlyArray<string>) => Promise<Error | string>
+type GcloudCommandWithStdout = (options: ReadonlyArray<string>) => Promise<string>
 
 export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> {
-    private gcloudCommand: (options: ReadonlyArray<string>) => Promise<Error | null>
-    private gcloudCommandWithStdout: (options: ReadonlyArray<string>) => Promise<Error | string>
+    private gcloudCommand: (options: ReadonlyArray<string>) => Promise<null>
+    private gcloudCommandWithStdout: (options: ReadonlyArray<string>) => Promise<string>
     constructor(gcloudCommand: string | GcloudCommandWithStdout = "gcloud") {
         if (typeof(gcloudCommand) === "string") {
             this.gcloudCommand = toFunction(gcloudCommand, doNothing)
             this.gcloudCommandWithStdout = toFunction(gcloudCommand, getResultFromStdout((stdout) => stdout))
         } else {
-            this.gcloudCommand = (args) => gcloudCommand(args).then((result) => {
-                if (result instanceof Error) {
-                    return result
-                }
-                return null
-            })
+            this.gcloudCommand = (args) => gcloudCommand(args).then((_) => { return null })
             this.gcloudCommandWithStdout = gcloudCommand
         }
     }
-    public createMachine(name: string, options: ICreateMachineOptions): Promise<Error | null> {
+    public createMachine(name: string, options: ICreateMachineOptions): Promise<null> {
         const createArgs = ["beta", "compute", "instances", "create", name]
         const startArgs = ["compute", "instances", "start", name]
         if (options.zone !== undefined) {
@@ -75,28 +70,18 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
         createArgs.push(`--machine-type=${machineType}`)
         createArgs.push(`--disk=name=${name},device-name=${name},mode=rw,boot=yes`)
 
-        return this.gcloudCommand(createArgs).then((result) => {
-            if (result instanceof Error) {
-                return result
-            }
-            return this.gcloudCommand(startArgs)
-        })
+        return this.gcloudCommand(createArgs).then((_) => this.gcloudCommand(startArgs))
     }
-    public getPublicIpAddress(name: string, options: IOptions): Promise<Error | string> {
+    public getPublicIpAddress(name: string, options: IOptions): Promise<string> {
         const args = ["compute", "instances", "list",
                     `--filter="name=${name}"`,
                     "--format='value(networkInterfaces[0].accessConfigs[0].natIP)'"]
         if (options.zone !== undefined) {
             args.push(`--zones=${options.zone}`)
         }
-        return this.gcloudCommandWithStdout(args).then((result) => {
-            if (result instanceof Error) {
-                return result
-            }
-            return result.split("\n")[0]
-        })
+        return this.gcloudCommandWithStdout(args).then((result) => result.split("\n")[0])
     }
-    public terminateMachine(name: string, options: IOptions): Promise<Error | null> {
+    public terminateMachine(name: string, options: IOptions): Promise<null> {
         const stopArgs = ["compute", "instances", "stop"]
         const deleteArgs = ["--quiet", "compute", "instances", "delete", "--keep-disks", "all"]
         if (options.zone !== undefined) {
@@ -105,12 +90,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
         }
         stopArgs.push(name)
         deleteArgs.push(name)
-        return this.gcloudCommand(stopArgs).then((result) => {
-            if (result instanceof Error) {
-                return result
-            }
-            return this.gcloudCommand(deleteArgs)
-        })
+        return this.gcloudCommand(stopArgs).then((_) => this.gcloudCommand(deleteArgs))
     }
 }
 
@@ -148,7 +128,7 @@ export class CloudBuilder implements ICloudBuilder {
     public create(command: Command): ICloud<void, void, void> {
         const cloud = new Cloud(command.gclouPath)
         return {
-            createMachine(name: string, _: void): Promise<Error | null> {
+            createMachine(name: string, _: void): Promise<null> {
                 /* Get machine type */
                 let machineType: string | ICustumMachineType | null = null
                 if (command.machineType !== undefined) {
@@ -156,13 +136,13 @@ export class CloudBuilder implements ICloudBuilder {
                 } else if (command.vcpu !== undefined && command.memory !== undefined) {
                     machineType = { vCPU: command.vcpu, memory: command.memory }
                 } else {
-                    return Promise.resolve(new Error("No machine type is specified"))
+                    return Promise.reject(new Error("No machine type is specified"))
                 }
 
                 /* Get accerelator */
                 const accelerators = command.accelerator
                 if (accelerators instanceof Error) {
-                    return Promise.resolve(accelerators)
+                    return Promise.reject(accelerators)
                 }
                 return cloud.createMachine(name, {
                     accelerators,
@@ -172,10 +152,10 @@ export class CloudBuilder implements ICloudBuilder {
                     zone: command.zone,
                 })
             },
-            getPublicIpAddress(name: string, _: void): Promise<Error | string> {
+            getPublicIpAddress(name: string, _: void): Promise<string> {
                 return cloud.getPublicIpAddress(name, {zone: command.zone})
             },
-            terminateMachine(name: string, _: void): Promise<Error | null> {
+            terminateMachine(name: string, _: void): Promise<null> {
                 return cloud.terminateMachine(name, {zone: command.zone})
             },
         }
