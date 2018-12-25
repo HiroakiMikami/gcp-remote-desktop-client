@@ -1,24 +1,28 @@
+import { ChildProcess } from "child_process"
 import { Command } from "commander"
-import { ISshClient, ISshClientBuilder } from "./ssh_client"
-import { doNothing, parseIntWithDefaultValue, retry, toFunction } from "./utils"
+import * as os from "os"
+import * as path from "path"
+import { ISshClient, ISshClientBuilder, OnExit } from "./ssh_client"
+import { backupFile, getChildProcess, parseIntWithDefaultValue, retry, toFunction } from "./utils"
 
 export interface IOptions {
     identityFile?: string
 }
 
-type SshCommand = (options: ReadonlyArray<string>) => Promise<Error | null>
+type SshCommand = (options: ReadonlyArray<string>) => Promise<Error | ChildProcess>
 
 export class SshClient implements ISshClient<IOptions> {
     private sshCommand: SshCommand
-    constructor(sshCommand: string | SshCommand = "ssh", private timeoutTime: number = 0) {
+    constructor(sshCommand: string | SshCommand = "ssh", private timeoutTime: number = 0,
+                private knownHostsPath = path.join(os.homedir(), ".ssh", "known_hosts")) {
         if (typeof(sshCommand) === "string") {
-            this.sshCommand = toFunction(sshCommand, doNothing)
+            this.sshCommand = toFunction(sshCommand, getChildProcess)
         } else {
             this.sshCommand = sshCommand
         }
     }
     public portForward(port: number, username: string, hostname: string, from: number, to: number,
-                       options: IOptions): Promise<Error> {
+                       options: IOptions): Promise<Error | OnExit> {
         const args = ["-o", "StrictHostKeyChecking=no",
                         "-fNT",
                          "-p", `${port}`,
@@ -29,7 +33,31 @@ export class SshClient implements ISshClient<IOptions> {
             args.push(`${options.identityFile}`)
         }
         args.push(hostname)
-        return retry(() => this.sshCommand(args), this.timeoutTime)
+
+        let restoreFile: () => Promise<Error | null> | null = null
+        /* Load known_hosts */
+        return backupFile(this.knownHostsPath)
+        .then((result) => {
+            /* Port forward */
+            if (result instanceof Error) {
+                return result
+            }
+            restoreFile = result
+
+            return retry(() => this.sshCommand(args), this.timeoutTime)
+        }).then((result: Error | ChildProcess) => {
+            if (result instanceof Error) {
+                return result
+            }
+            return (() => {
+                if (result !== null) {
+                    result.kill() // Finish
+                }
+
+                /* Restore known_hosts */
+                return restoreFile()
+            }) as OnExit
+        })
     }
 }
 
@@ -44,7 +72,7 @@ export class SshClientBuilder implements ISshClientBuilder {
         const client = new SshClient(command.sshPath, command.sshTimeoutTime)
         return {
             portForward(port: number, username: string, hostname: string, from: number, to: number,
-                        _: void): Promise<Error> {
+                        _: void): Promise<Error | OnExit> {
                 return client.portForward(port, username, hostname, from, to, { identityFile: command.identityFile})
             },
         }

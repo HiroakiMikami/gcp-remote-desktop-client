@@ -55,6 +55,19 @@ type GetResult<Result> =
     (commandName: string, args: ReadonlyArray<string>, command: ChildProcess)
         => Promise<Error | Result>
 
+export const getChildProcess: GetResult<ChildProcess> = (cmd, args, p) => {
+    p.stdout.pipe(process.stdout)
+    p.stderr.pipe(process.stderr)
+    return new Promise((resolve) => {
+        p.on("exit", (code, signal) => {
+            if (code === 0) {
+                resolve(p)
+            } else {
+                resolve(new Error(`command (${cmd} ${args.join(" ")} exits with code ${code}(${signal}`))
+            }
+        })
+    })
+}
 export const doNothing: GetResult<null> = (cmd, args, p) => {
     p.stdout.pipe(process.stdout)
     p.stderr.pipe(process.stderr)
