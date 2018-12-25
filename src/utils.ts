@@ -1,5 +1,29 @@
 import { ChildProcess, spawn } from "child_process"
 
+/**
+ *
+ * @param procedure The function to execute
+ * @param duration The timeout time [sec]
+ */
+export function retry<Result>(procedure: () => Promise<Error | Result>, duration: number): Promise<Error | Result> {
+    const beginTime = new Date().getTime()
+    function execute(previous: Promise<Error | Result>): Promise<Error | Result> {
+        return previous.then((result) => {
+            if (!(result instanceof Error)) {
+                return result
+            }
+            const time = new Date().getTime()
+            if ((time - beginTime) > duration * 1000) {
+                // Timeout
+                return result
+            }
+            const next = procedure()
+            return execute(next)
+        })
+    }
+    return execute(procedure())
+}
+
 type GetResult<Result> =
     (commandName: string, args: ReadonlyArray<string>, command: ChildProcess)
         => Promise<Error | Result>
