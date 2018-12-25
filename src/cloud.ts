@@ -1,4 +1,5 @@
 import { Command } from "commander"
+import { Configurations } from "./configurations"
 
 export interface ICloud<CreateMachineOptions, GetPublicIpAddressOptions, TerminateMachineOptions> {
     createMachine(name: string, options: CreateMachineOptions): Promise<null>
@@ -7,6 +8,6 @@ export interface ICloud<CreateMachineOptions, GetPublicIpAddressOptions, Termina
 }
 
 export interface ICloudBuilder {
-    commandLineArguments(command: Command): Command
+    commandLineArguments(command: Command, configs: Configurations): Command
     create(command: Command): ICloud<void, void, void>
 }

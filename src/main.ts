@@ -26,23 +26,24 @@ async function main() {
         tmpGlobalConfig)
 
     const backendOptions = new Command()
-    const args = await new Promise<string[]>((resolve) => {
+    const nameArgument = await new Promise<string>((resolve) => {
         backendOptions
             .version("0.0.1")
-            .usage("[backend-options] -- [args]")
+            .usage("[backend-options] <name>[:display-number|::port] [options]")
             .option("--ssh <ssh-backend>", "the backend of ssh", globalConfig.ssh)
             .option("--vncviewer <vncviewer-backend>", "the backend of vncviewer", globalConfig.vncviewer)
             .option("--cloud <cloud-service>", "the cloud service", globalConfig.cloud)
             .option("--log-level <level>",
                     "One of followings: [trace, debug, info, warn, error, fatal]",
                     globalConfig["log-level"])
-            .on("command:*", (xs) => {
-                xs.unshift(process.argv[1])
-                xs.unshift(process.argv[0])
-                resolve(xs)
-            })
+            .arguments("<name>[:display-number|::port]")
+            .action(resolve)
             .parse(process.argv)
     })
+    const args = process.argv.slice(process.argv.indexOf(nameArgument) + 1)
+    args.unshift(process.argv[1])
+    args.unshift(process.argv[0])
+
     logger.level = backendOptions.logLevel
 
     logger.debug(`ssh backend: ${backendOptions.ssh}`)
@@ -71,51 +72,58 @@ async function main() {
         }
     }
 
-    let nameArgument: string | null = null
+    let name: string | null = null
+    let port: number | null = null
+
+    /* parse nameArgument */
+    logger.info(`Parse nameArgument(${nameArgument})`)
+    if (nameArgument.lastIndexOf("::") !== -1) {
+        name = nameArgument.substr(0, nameArgument.lastIndexOf("::"))
+        port = parseInt(nameArgument.substr(2 + nameArgument.lastIndexOf("::")), 10)
+    } else if (nameArgument.lastIndexOf(":") !== -1) {
+        name = nameArgument.substr(0, nameArgument.lastIndexOf(":"))
+        port = 5900 + parseInt(nameArgument.substr(1 + nameArgument.lastIndexOf(":")), 10)
+    } else {
+        name = nameArgument
+    }
+    if (name === null) {
+        throw new Error(`A VM name is not specified.`)
+    }
+    if (port === null) {
+        throw new Error(`A port or display-number is not specified.`)
+    }
+    logger.info(`name: ${name}`)
+    logger.info(`port (${name}): ${port}`)
+
+    const configPath = path.join(configDir, `${name}.json`)
+    logger.info(`config file: ${configPath}`)
+    logger.info(`Load the global config file: ${configPath}`)
+
+    const tmpConfigs = await load(configPath)
+    const configs = merge(globalConfig, tmpConfigs)
+
     let command = new Command()
     command
-        .arguments("<name>[:display-number|::port]")
-        .action((nameArg) => nameArgument = nameArg)
-        .option("--local-port <port>", "The port number of the localhost", parseIntWithDefaultValue, -1)
+        .option("--local-port <port>", "The port number of the localhost",
+                parseIntWithDefaultValue, configs["local-port"])
     /* options for ssh client */
     command
-        .option("-p, --port <port>", "The port number", parseIntWithDefaultValue, 22)
-        .option("-l, --login-name <login_name>", "The login name", os.userInfo().username)
-    command = getSshClientBuilder().commandLineArguments(command)
+        .option("-p, --port <port>", "The port number", parseIntWithDefaultValue, configs.port || 22)
+        .option("-l, --login-name <login_name>", "The login name", configs["login-name"] || os.userInfo().username)
+    command = getSshClientBuilder().commandLineArguments(command, configs[backendOptions.ssh] || {})
     /* options for vncviewer */
-    command = getVncViewerBuilder().commandLineArguments(command)
+    command = getVncViewerBuilder().commandLineArguments(command, configs[backendOptions.vncviewer] || {})
     /* options for cloud */
-    command = getCloudBuilder().commandLineArguments(command)
+    command = getCloudBuilder().commandLineArguments(command, configs[backendOptions.cloud] || {})
+
     command.parse(args)
 
     const ssh = getSshClientBuilder().create(command)
     const vncviewer = getVncViewerBuilder().create(command)
     const cloud = getCloudBuilder().create(command)
 
-    let name: string | null = null
-    let port: number | null = null
     let onExit: OnExit | null = null
     try {
-        /* parse nameArgument */
-        logger.info(`Parse nameArgument(${nameArgument})`)
-        if (nameArgument.lastIndexOf("::") !== -1) {
-            name = nameArgument.substr(0, nameArgument.lastIndexOf("::"))
-            port = parseInt(nameArgument.substr(2 + nameArgument.lastIndexOf("::")), 10)
-        } else if (nameArgument.lastIndexOf(":") !== -1) {
-            name = nameArgument.substr(0, nameArgument.lastIndexOf(":"))
-            port = 5900 + parseInt(nameArgument.substr(1 + nameArgument.lastIndexOf(":")), 10)
-        } else {
-            name = nameArgument
-        }
-        if (name === null) {
-            throw new Error(`A VM name is not specified.`)
-        }
-        if (port === null) {
-            throw new Error(`A port or display-number is not specified.`)
-        }
-        logger.info(`name: ${name}`)
-        logger.info(`port (${name}): ${port}`)
-
         const localPort = (command.localPort < 0) ? port : command.localPort
         logger.info(`port (localhost): ${localPort}`)
 
