@@ -22,6 +22,7 @@ export interface ICreateMachineOptions extends IOptions {
     machineType: string | ICustumMachineType,
     accelerators?: ReadonlyArray<IAccelerator>
     preemptible?: boolean
+    tags?: ReadonlyArray<string>
 }
 
 type GcloudCommandWithStdout = (options: ReadonlyArray<string>) => Promise<Error | string>
@@ -63,6 +64,11 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
                 createArgs.push(`type=${accelerator.deviceType},count=${accelerator.count}`)
             }
         }
+
+        if (options.tags !== undefined && options.tags.length !== 0) {
+            createArgs.push(`--tags=${options.tags.join(",")}`)
+        }
+
         if (options.preemptible) {
             createArgs.push("--preemptible")
         }
@@ -123,6 +129,10 @@ function parseAccelerator(value: string, _: ReadonlyArray<IAccelerator>) {
     return accelerators
 }
 
+function parseTags(value: string, _: ReadonlyArray<string>) {
+    return value.split(",")
+}
+
 export class CloudBuilder implements ICloudBuilder {
     public commandLineArguments(command: Command): Command {
         return command
@@ -132,6 +142,7 @@ export class CloudBuilder implements ICloudBuilder {
             .option("--memory <n>", "The required memory [GB]", undefined)
             .option("--accelerator [type=count,...]", "The accelerator", parseAccelerator, [])
             .option("--preemptible", "Use preemptible VM", false)
+            .option("--tags <tag1>[,<tag2>...]", "The network tags", parseTags, [])
             .option("--zone <zone>", "The zone", undefined)
     }
     public create(command: Command): ICloud<void, void, void> {
@@ -157,6 +168,7 @@ export class CloudBuilder implements ICloudBuilder {
                     accelerators,
                     machineType,
                     preemptible: command.preemptible,
+                    tags: command.tags,
                     zone: command.zone,
                 })
             },
