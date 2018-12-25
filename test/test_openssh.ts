@@ -4,7 +4,6 @@ import * as fs from "fs"
 import * as tmp from "tmp"
 
 import { SshClient } from "../src/openssh"
-import { OnExit } from "../src/ssh_client"
 
 describe("SshClient", () => {
     describe("#portForward", () => {
@@ -29,23 +28,22 @@ describe("SshClient", () => {
             return command.portForward(22, "user", "localhost", 1022, 8022,
                                        {identityFile: "~/.ssh/id_rsa" })
         })
-        it("return onexit function if the command exists", () => {
+        it("return onexit function if the command exists", async () => {
             const command = new SshClient(":")
-            const retval = command.portForward(22, "user", "localhost", 22, 8022, {})
-            return retval.then((onexit) => {
-                (`${typeof(onexit)}`).toString().should.equal("function")
-            })
+            const onexit = await command.portForward(22, "user", "localhost", 22, 8022, {});
+            `${typeof(onexit)}`.toString().should.equal("function")
         })
-        it("reject with an error if the command is not found", () => {
+        it("reject with an error if the command is not found", async () => {
             const command = new SshClient("./not-found")
-            const retval = command.portForward(22, "user", "localhost", 22, 8022, {})
-            let isCaught = false
-            return retval.catch((error) => {
-                should.exist(error)
-                isCaught = true
-            }).then((_) => isCaught.should.equal(true))
+
+            try {
+                await command.portForward(22, "user", "localhost", 22, 8022, {})
+            } catch (err) {
+                return null
+            }
+            should.exist(null) // Failure
         })
-        it("backup known_hosts file", () => {
+        it("backup known_hosts file", async () => {
             const tmpFile = tmp.fileSync()
             fs.writeFileSync(tmpFile.name, "original")
             const command = new SshClient((_) => {
@@ -53,11 +51,9 @@ describe("SshClient", () => {
 
                 return Promise.resolve(null)
             }, 0, tmpFile.name)
-            return command.portForward(22, "user", "localhost", 1022, 8022, {}).then((onexit) => {
-                return (onexit as OnExit)()
-            }).then((_) => {
-                fs.readFileSync(tmpFile.name).toString().should.equal("original")
-            })
+            const onexit = await command.portForward(22, "user", "localhost", 1022, 8022, {})
+            await onexit()
+            fs.readFileSync(tmpFile.name).toString().should.equal("original")
         })
     })
 })

@@ -13,20 +13,22 @@ const backendOptions = new Command()
 let name: string | null = null
 let port: number | null = null
 
-new Promise((resolve) => {
-    backendOptions
-        .version("0.0.1")
-        .usage("[backend-options] -- [args]")
-        .option("--ssh <ssh-backend>", "the backend of ssh", "OpenSSH")
-        .option("--vncviewer <vncviewer-backend>", "the backend of vncviewer", "TigerVNC")
-        .option("--cloud <cloud-service>", "the cloud service", "GCP")
-        .on("command:*", (args) => {
-            args.unshift(process.argv[1])
-            args.unshift(process.argv[0])
-            resolve(args)
-        })
-        .parse(process.argv)
-}).then((args: string[]) => {
+async function main() {
+    const args = await new Promise<string[]>((resolve) => {
+        backendOptions
+            .version("0.0.1")
+            .usage("[backend-options] -- [args]")
+            .option("--ssh <ssh-backend>", "the backend of ssh", "OpenSSH")
+            .option("--vncviewer <vncviewer-backend>", "the backend of vncviewer", "TigerVNC")
+            .option("--cloud <cloud-service>", "the cloud service", "GCP")
+            .on("command:*", (xs) => {
+                xs.unshift(process.argv[1])
+                xs.unshift(process.argv[0])
+                resolve(xs)
+            })
+            .parse(process.argv)
+    })
+
     function getSshClientBuilder() {
         if (backendOptions.ssh === "OpenSSH") {
             return new OpenSSH.SshClientBuilder()
@@ -66,58 +68,52 @@ new Promise((resolve) => {
     command = getCloudBuilder().commandLineArguments(command)
     command.parse(args)
 
-    /* parse nameArgument */
-    if (nameArgument.lastIndexOf("::") !== -1) {
-        name = nameArgument.substr(0, nameArgument.lastIndexOf("::"))
-        port = parseInt(nameArgument.substr(2 + nameArgument.lastIndexOf("::")), 10)
-    } else if (nameArgument.lastIndexOf(":") !== -1) {
-        name = nameArgument.substr(0, nameArgument.lastIndexOf(":"))
-        port = 5900 + parseInt(nameArgument.substr(1 + nameArgument.lastIndexOf(":")), 10)
-    } else {
-        name = nameArgument
-    }
-    if (name === null) {
-        throw new Error(`A VM name is not specified.`)
-    }
-    if (port === null) {
-        throw new Error(`A port or display-number is not specified.`)
-    }
     const ssh = getSshClientBuilder().create(command)
     const vncviewer = getVncViewerBuilder().create(command)
     const cloud = getCloudBuilder().create(command)
 
-    /* Create VM */
     let onExit: OnExit | null = null
-    cloud.createMachine(name, null).then((_) => {
+    try {
+        /* parse nameArgument */
+        if (nameArgument.lastIndexOf("::") !== -1) {
+            name = nameArgument.substr(0, nameArgument.lastIndexOf("::"))
+            port = parseInt(nameArgument.substr(2 + nameArgument.lastIndexOf("::")), 10)
+        } else if (nameArgument.lastIndexOf(":") !== -1) {
+            name = nameArgument.substr(0, nameArgument.lastIndexOf(":"))
+            port = 5900 + parseInt(nameArgument.substr(1 + nameArgument.lastIndexOf(":")), 10)
+        } else {
+            name = nameArgument
+        }
+        if (name === null) {
+            throw new Error(`A VM name is not specified.`)
+        }
+        if (port === null) {
+            throw new Error(`A port or display-number is not specified.`)
+        }
+        let localPort = command.localPort
+        if (localPort < 0) {
+            localPort = port
+        }
+
+        /* Create VM */
+        await cloud.createMachine(name, null)
         /* Get public IP address */
-        return cloud.getPublicIpAddress(name, null)
-    }).then((ip) => {
+        const ip = await cloud.getPublicIpAddress(name, null)
         /* SSH port forwarding */
-        let localPort = command.localPort
-        if (localPort < 0) {
-            localPort = port
-        }
-        return ssh.portForward(command.port, command.loginName, ip,
-                            port, localPort,
-                            null).then((result) => {
-                                onExit = result
-                                return Promise.resolve(null)
-                            })
-    }).then((_) => {
+        onExit = await ssh.portForward(command.port, command.loginName, ip,
+                                            port, localPort, null)
         /* Connect to VM via vncviewer */
-        let localPort = command.localPort
-        if (localPort < 0) {
-            localPort = port
-        }
-        return vncviewer.connect(localPort, null).catch((err) => {
-            console.error(err)
-        })
-    }).catch((err) => {
+        await vncviewer.connect(localPort, null)
+    } catch (err) {
         console.log(err)
-    }).then((_) => {
-        /* Stop port forwarding */
+    }
+
+    /* Stop port forwarding */
+    if (onExit !== null) {
         onExit()
-        /* Terimnate VM */
-        return cloud.terminateMachine(name, null)
-    })
-})
+    }
+    /* Terimnate VM */
+    return cloud.terminateMachine(name, null)
+}
+
+main()

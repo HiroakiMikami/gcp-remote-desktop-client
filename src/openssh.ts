@@ -21,8 +21,8 @@ export class SshClient implements ISshClient<IOptions> {
             this.sshCommand = sshCommand
         }
     }
-    public portForward(port: number, username: string, hostname: string, from: number, to: number,
-                       options: IOptions): Promise<OnExit> {
+    public async portForward(port: number, username: string, hostname: string, from: number, to: number,
+                             options: IOptions): Promise<OnExit> {
         const args = ["-o", "StrictHostKeyChecking=no",
                         "-fNT",
                          "-p", `${port}`,
@@ -34,24 +34,18 @@ export class SshClient implements ISshClient<IOptions> {
         }
         args.push(hostname)
 
-        let restoreFile: () => Promise<null> | null = null
         /* Load known_hosts */
-        return backupFile(this.knownHostsPath)
-        .then((result) => {
-            /* Port forward */
-            restoreFile = result
+        const restoreFile = await backupFile(this.knownHostsPath)
+        /* Port forward */
+        const p = await retry(() => this.sshCommand(args), this.timeoutTime)
+        return () => {
+            if (p !== null) {
+                p.kill() // Finish
+            }
 
-            return retry(() => this.sshCommand(args), this.timeoutTime)
-        }).then((result: ChildProcess) => {
-            return (() => {
-                if (result !== null) {
-                    result.kill() // Finish
-                }
-
-                /* Restore known_hosts */
-                return restoreFile()
-            }) as OnExit
-        })
+            /* Restore known_hosts */
+            return restoreFile()
+        }
     }
 }
 

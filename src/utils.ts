@@ -18,11 +18,13 @@ export async function backupFile(path: string): Promise<() => Promise<null>> {
         originalFile = (await readFile(path)).toString()
     }
 
-    return () => {
+    return async () => {
         if (originalFile === null) {
-            return unlink(path).then((_) => null)
+            await unlink(path)
+            return null
         } else {
-            return writeFile(path, originalFile).then((_) => null)
+            await writeFile(path, originalFile)
+            return null
         }
     }
 }

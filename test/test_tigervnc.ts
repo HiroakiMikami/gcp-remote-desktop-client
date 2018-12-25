@@ -22,21 +22,20 @@ describe("VncViewer", () => {
             return command.connect(5901,
                                   {passwordFile: "~/.vnc/passwd", compressLevel: 0, qualityLevel: 1})
         })
-        it("return null code if the command exists", () => {
+        it("return null if the command exists", async () => {
             const command = new VncViewer(":")
-            const retval = command.connect(5901, {})
-            return retval.then((error) => {
-                should.not.exist(error)
-            })
+            const retval = await command.connect(5901, {})
+            should.not.exist(retval)
         })
-        it("reject with an error if the command is not found", () => {
+        it("reject with an error if the command is not found", async () => {
             const command = new VncViewer("./not-found")
-            const retval = command.connect(5901, {})
-            let isCaught = false
-            return retval.catch((error) => {
-                should.exist(error)
-                isCaught = true
-            }).then((_) => isCaught.should.equal(true))
+
+            try {
+                await command.connect(5901, {})
+            } catch (err) {
+                return null
+            }
+            should.exist(null) // Failure
         })
     })
 })
