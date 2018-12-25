@@ -1,7 +1,34 @@
 import * as chai from "chai"
+import * as fs from "fs"
+import * as tmp from "tmp"
 chai.should()
 
-import { getResultFromStdout, retry, toFunction } from "../src/utils"
+import { backupFile, getResultFromStdout, retry, toFunction } from "../src/utils"
+
+describe("#backupFile", () => {
+    it("restore the content of file", () => {
+        const tmpobj = tmp.fileSync()
+        fs.writeFileSync(tmpobj.name, "foobar")
+        const restore = backupFile(tmpobj.name)
+        return restore.then((r) => {
+            fs.writeFileSync(tmpobj.name, "")
+            return r().then((_) => {
+                fs.readFileSync(tmpobj.name).toString().should.equal("foobar")
+            })
+        })
+    })
+    it("delete the file when file does not exist", () => {
+        const tmpobj = tmp.fileSync()
+        fs.unlinkSync(tmpobj.name)
+        const restore = backupFile(tmpobj.name)
+        return restore.then((r) => {
+            fs.writeFileSync(tmpobj.name, "")
+            return r().then((_) => {
+                fs.existsSync(tmpobj.name).should.equal(false)
+            })
+        })
+    })
+})
 
 describe("#retry", () => {
     it("retry until success", () => {

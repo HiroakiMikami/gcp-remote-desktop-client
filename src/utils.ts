@@ -1,7 +1,30 @@
 import { ChildProcess, spawn } from "child_process"
+import * as fs from "fs"
+import * as util from "util"
 
 export function parseIntWithDefaultValue(value: string, _: number) {
     return parseInt(value, 10)
+}
+
+export async function backupFile(path: string): Promise<() => Promise<Error | null>> {
+    const exists = util.promisify(fs.exists)
+    const readFile = util.promisify(fs.readFile)
+    const writeFile = util.promisify(fs.writeFile)
+    const unlink = util.promisify(fs.unlink)
+    const e = await exists(path)
+
+    let originalFile: string | null = null
+    if (e) {
+        originalFile = (await readFile(path)).toString()
+    }
+
+    return () => {
+        if (originalFile === null) {
+            return unlink(path).then((_) => null)
+        } else {
+            return writeFile(path, originalFile).then((_) => null)
+        }
+    }
 }
 
 /**
