@@ -1,6 +1,7 @@
 import { Command } from "commander"
 import * as os from "os"
 import * as path from "path"
+import { isString } from "util"
 import { Executable } from "./executable"
 import { IVncViewer, IVncViewerBuilder } from "./vnc_viewer"
 
@@ -15,7 +16,7 @@ type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<null>
 export class VncViewer implements IVncViewer<IOptions> {
     private vncViewerCommand: VncViewerCommand
     constructor(vncViewerCommand: string | VncViewerCommand = "vncviewer") {
-        if (typeof(vncViewerCommand) === "string") {
+        if (isString(vncViewerCommand)) {
             const vncviewer = new Executable(vncViewerCommand)
             this.vncViewerCommand = (args: string[]) => vncviewer.execute(args).then(() => null)
         } else {

@@ -1,4 +1,5 @@
 import { Command } from "commander"
+import { isString } from "util"
 import { ICloud, ICloudBuilder } from "./cloud"
 import { Executable } from "./executable"
 
@@ -31,7 +32,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
     private gcloudCommand: (options: ReadonlyArray<string>) => Promise<null>
     private gcloudCommandWithStdout: (options: ReadonlyArray<string>) => Promise<string>
     constructor(gcloudCommand: string | GcloudCommand = "gcloud") {
-        if (typeof(gcloudCommand) === "string") {
+        if (isString(gcloudCommand)) {
             const gcloud = new Executable(gcloudCommand)
             this.gcloudCommand = (args: string[]) => gcloud.execute(args).then(() => null)
             this.gcloudCommandWithStdout = async (args: string[]) => {
@@ -54,10 +55,10 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             startArgs.push(`--zone=${options.zone}`)
         }
         let machineType = ""
-        if (typeof(options.machineType) === "string") {
-            machineType = options.machineType as string /* TODO */
+        if (isString(options.machineType)) {
+            machineType = options.machineType
         } else {
-            const tmp = options.machineType as ICustumMachineType
+            const tmp = options.machineType
             machineType = `custum-${tmp.vCPU}-${tmp.memory * 1024}`
         }
         if (options.accelerators !== undefined && options.accelerators.length !== 0) {
