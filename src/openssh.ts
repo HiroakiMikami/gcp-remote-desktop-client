@@ -1,6 +1,6 @@
 import { Command } from "commander"
 import { ISshClient, ISshClientBuilder } from "./ssh_client"
-import { doNothing, toFunction } from "./utils"
+import { doNothing, retry, toFunction } from "./utils"
 
 export interface IOptions {
     identityFile?: string
@@ -10,7 +10,7 @@ type SshCommand = (options: ReadonlyArray<string>) => Promise<Error | null>
 
 export class SshClient implements ISshClient<IOptions> {
     private sshCommand: SshCommand
-    constructor(sshCommand: string | SshCommand = "ssh") {
+    constructor(sshCommand: string | SshCommand = "ssh", private timeoutTime: number = 0) {
         if (typeof(sshCommand) === "string") {
             this.sshCommand = toFunction(sshCommand, doNothing)
         } else {
@@ -29,7 +29,7 @@ export class SshClient implements ISshClient<IOptions> {
             args.push(`${options.identityFile}`)
         }
         args.push(hostname)
-        return this.sshCommand(args)
+        return retry(() => this.sshCommand(args), this.timeoutTime)
     }
 }
 
@@ -37,10 +37,11 @@ export class SshClientBuilder implements ISshClientBuilder {
     public commandLineArguments(command: Command): Command {
         return command
             .option("--ssh-path <command>", "The path of `ssh` command", "ssh")
+            .option("--ssh-timeout-time <time[sec]>", "The timeout time", 0)
             .option("-i, --identity-file <identity_file>", "The path of identitiy file", undefined)
     }
     public create(command: Command): ISshClient<void> {
-        const client = new SshClient(command.sshPath)
+        const client = new SshClient(command.sshPath, parseInt(command.sshTimeoutTime, 10))
         return {
             portForward(port: number, username: string, hostname: string, from: number, to: number,
                         _: void): Promise<Error> {
