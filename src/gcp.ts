@@ -1,5 +1,7 @@
 import { Command } from "commander"
+import { isString } from "util"
 import { ICloud, ICloudBuilder } from "./cloud"
+import { Configurations } from "./configurations"
 import { Executable } from "./executable"
 
 export interface IOptions {
@@ -31,7 +33,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
     private gcloudCommand: (options: ReadonlyArray<string>) => Promise<null>
     private gcloudCommandWithStdout: (options: ReadonlyArray<string>) => Promise<string>
     constructor(gcloudCommand: string | GcloudCommand = "gcloud") {
-        if (typeof(gcloudCommand) === "string") {
+        if (isString(gcloudCommand)) {
             const gcloud = new Executable(gcloudCommand)
             this.gcloudCommand = (args: string[]) => gcloud.execute(args).then(() => null)
             this.gcloudCommandWithStdout = async (args: string[]) => {
@@ -54,10 +56,10 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             startArgs.push(`--zone=${options.zone}`)
         }
         let machineType = ""
-        if (typeof(options.machineType) === "string") {
-            machineType = options.machineType as string /* TODO */
+        if (isString(options.machineType)) {
+            machineType = options.machineType
         } else {
-            const tmp = options.machineType as ICustumMachineType
+            const tmp = options.machineType
             machineType = `custum-${tmp.vCPU}-${tmp.memory * 1024}`
         }
         if (options.accelerators !== undefined && options.accelerators.length !== 0) {
@@ -126,16 +128,27 @@ function parseTags(value: string, _: ReadonlyArray<string>) {
 }
 
 export class CloudBuilder implements ICloudBuilder {
-    public commandLineArguments(command: Command): Command {
-        return command
+    public commandLineArguments(command: Command, configs: Configurations): Command {
+        let preemptible = configs.preemptible
+        if (preemptible === undefined) {
+            preemptible = false
+        }
+        command
             .option("--gcloud-path <command>", "The path of `gcloud` command", "gcloud")
-            .option("--machine-type <machine_type>", "The machine type", undefined)
-            .option("--vcpu <n>", "The number of CPUs", undefined)
-            .option("--memory <n>", "The required memory [GB]", undefined)
-            .option("--accelerator [type=count,...]", "The accelerator", parseAccelerator, [])
-            .option("--preemptible", "Use preemptible VM", false)
-            .option("--tags <tag1>[,<tag2>...]", "The network tags", parseTags, [])
-            .option("--zone <zone>", "The zone", undefined)
+            .option("--machine-type <machine_type>", "The machine type", configs["machine-type"])
+            .option("--vcpu <n>", "The number of CPUs", configs.vcpu)
+            .option("--memory <n>", "The required memory [GB]", configs.memory)
+            .option("--accelerator [type=count,...]", "The accelerator", parseAccelerator, configs.accelerator || [])
+        if (preemptible) {
+                command
+                    .option("--no-preemptible", `Not use preemptible VM (default=${preemptible})`, preemptible)
+            } else {
+                command
+                    .option("--preemptible", `Use preemptible VM (default=${preemptible})`, preemptible)
+            }
+        return command
+            .option("--tags <tag1>[,<tag2>...]", "The network tags", parseTags, configs.tags)
+            .option("--zone <zone>", "The zone", configs.zone)
     }
     public create(command: Command): ICloud<void, void, void> {
         const cloud = new Cloud(command.gclouPath)

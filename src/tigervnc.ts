@@ -1,6 +1,8 @@
 import { Command } from "commander"
 import * as os from "os"
 import * as path from "path"
+import { isString } from "util"
+import { Configurations } from "./configurations"
 import { Executable } from "./executable"
 import { IVncViewer, IVncViewerBuilder } from "./vnc_viewer"
 
@@ -15,7 +17,7 @@ type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<null>
 export class VncViewer implements IVncViewer<IOptions> {
     private vncViewerCommand: VncViewerCommand
     constructor(vncViewerCommand: string | VncViewerCommand = "vncviewer") {
-        if (typeof(vncViewerCommand) === "string") {
+        if (isString(vncViewerCommand)) {
             const vncviewer = new Executable(vncViewerCommand)
             this.vncViewerCommand = (args: string[]) => vncviewer.execute(args).then(() => null)
         } else {
@@ -43,13 +45,15 @@ export class VncViewer implements IVncViewer<IOptions> {
 }
 
 export class VncViewerBuilder implements IVncViewerBuilder {
-    public commandLineArguments(command: Command): Command {
+    public commandLineArguments(command: Command, configs: Configurations): Command {
         return command
             .option("--vncviewer-path <command>", "The path of `vncviewer` command", "vncviewer")
             .option("--password-file <password-file>", "The path of vnc password file",
-                path.join(os.homedir(), ".vnc", "passwd"))
-            .option("--quality-level <q>", "The JPEG quality level, 0 = Low, 9 = High", undefined)
-            .option("--compress-level <c>", "The compression level, 0 = Low, 9 = High", undefined)
+                configs["password-file"] || path.join(os.homedir(), ".vnc", "passwd"))
+            .option("--quality-level <q>", "The JPEG quality level, 0 = Low, 9 = High",
+                configs["quality-level"] || undefined)
+            .option("--compress-level <c>", "The compression level, 0 = Low, 9 = High",
+                configs["compress-level"] || undefined)
         }
     public create(command: Command): IVncViewer<void> {
         const viewer = new VncViewer(command.vncviewer_path)

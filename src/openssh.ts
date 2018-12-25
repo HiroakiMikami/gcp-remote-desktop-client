@@ -2,6 +2,8 @@ import { ChildProcess } from "child_process"
 import { Command } from "commander"
 import * as os from "os"
 import * as path from "path"
+import { isString } from "util"
+import { Configurations } from "./configurations"
 import { Executable } from "./executable"
 import { ISshClient, ISshClientBuilder, OnExit } from "./ssh_client"
 import { backupFile, parseIntWithDefaultValue, retry } from "./utils"
@@ -16,7 +18,7 @@ export class SshClient implements ISshClient<IOptions> {
     private sshCommand: SshCommand
     constructor(sshCommand: string | SshCommand = "ssh", private timeoutTime: number = 0,
                 private knownHostsPath = path.join(os.homedir(), ".ssh", "known_hosts")) {
-        if (typeof(sshCommand) === "string") {
+        if (isString(sshCommand)) {
             const ssh = new Executable(sshCommand)
             this.sshCommand = (args: string[]) => ssh.execute(args).then((result) => result.process)
         } else {
@@ -52,11 +54,12 @@ export class SshClient implements ISshClient<IOptions> {
 }
 
 export class SshClientBuilder implements ISshClientBuilder {
-    public commandLineArguments(command: Command): Command {
+    public commandLineArguments(command: Command, configs: Configurations): Command {
         return command
             .option("--ssh-path <command>", "The path of `ssh` command", "ssh")
-            .option("--ssh-timeout-time <time[sec]>", "The timeout time", parseIntWithDefaultValue, 0)
-            .option("-i, --identity-file <identity_file>", "The path of identitiy file", undefined)
+            .option("--ssh-timeout-time <time[sec]>", "The timeout time",
+                    parseIntWithDefaultValue, configs["ssh-timeout-time"] || 0)
+            .option("-i, --identity-file <identity_file>", "The path of identitiy file", configs["identity-file"])
     }
     public create(command: Command): ISshClient<void> {
         const client = new SshClient(command.sshPath, command.sshTimeoutTime)
