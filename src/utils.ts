@@ -52,7 +52,7 @@ export function getResultFromStdout<Result>(getResult: (stdout: string) => Resul
                 if (code === 0) {
                     resolve(getResult(stdout))
                 } else {
-                    resolve(new Error(`command (${cmd} ${args.join(" ")} exits with code ${code}(${signal}`))
+                    resolve(new Error(`command (${cmd} ${args.join(" ")} exits with code ${code}(${signal})`))
                 }
             })
         })
