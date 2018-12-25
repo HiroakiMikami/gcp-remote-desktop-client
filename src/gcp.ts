@@ -1,4 +1,5 @@
-import { ICloud } from "./cloud"
+import { Command } from "commander"
+import { ICloud, ICloudBuilder } from "./cloud"
 import { doNothing, getResultFromStdout, toFunction } from "./utils"
 
 export interface IOptions {
@@ -56,7 +57,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             const tmp = options.machineType as ICustumMachineType
             machineType = `custum-${tmp.vCPU}-${tmp.memory * 1024}`
         }
-        if (options.accelerators !== undefined) {
+        if (options.accelerators !== undefined && options.accelerators.length !== 0) {
             for (const accelerator of options.accelerators) {
                 createArgs.push("--accelerator")
                 createArgs.push(`type=${accelerator.deviceType},count=${accelerator.count}`)
@@ -66,7 +67,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             createArgs.push("--preemptible")
         }
         createArgs.push(`--machine-type=${machineType}`)
-        createArgs.push(`--disk-name=${name},device-name=${name},mode=rw,boot=yes`)
+        createArgs.push(`--disk=name=${name},device-name=${name},mode=rw,boot=yes`)
 
         return this.gcloudCommand(createArgs).then((result) => {
             if (result instanceof Error) {
@@ -82,11 +83,16 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
         if (options.zone !== undefined) {
             args.push(`--zones=${options.zone}`)
         }
-        return this.gcloudCommandWithStdout(args)
+        return this.gcloudCommandWithStdout(args).then((result) => {
+            if (result instanceof Error) {
+                return result
+            }
+            return result.split("\n")[0]
+        })
     }
     public terminateMachine(name: string, options: IOptions): Promise<Error | null> {
         const stopArgs = ["compute", "instances", "stop"]
-        const deleteArgs = ["compute", "instances", "delete"]
+        const deleteArgs = ["--quiet", "compute", "instances", "delete", "--keep-disks", "all"]
         if (options.zone !== undefined) {
             stopArgs.push(`--zone=${options.zone}`)
             deleteArgs.push(`--zone=${options.zone}`)
@@ -99,5 +105,67 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             }
             return this.gcloudCommand(deleteArgs)
         })
+    }
+}
+
+function parseAccelerator(value: string, _: ReadonlyArray<IAccelerator>) {
+    const accelerators = []
+    try {
+        const xs = value.split(",")
+        for (const x of xs) {
+            if (x.length === 0) { continue }
+            const [type, count] = x.split("=")
+            accelerators.push({ deviceType: type, count: parseInt(count, 10) })
+        }
+    } catch (error) {
+        return error
+    }
+    return accelerators
+}
+
+export class CloudBuilder implements ICloudBuilder {
+    public commandLineArguments(command: Command): Command {
+        return command
+            .option("--gcloud-path <command>", "The path of `gcloud` command", "gcloud")
+            .option("--machine-type <machine_type>", "The machine type", undefined)
+            .option("--vcpu <n>", "The number of CPUs", undefined)
+            .option("--memory <n>", "The required memory [GB]", undefined)
+            .option("--accelerator [type=count,...]", "The accelerator", parseAccelerator, [])
+            .option("--preemptible", "Use preemptible VM", false)
+            .option("--zone <zone>", "The zone", undefined)
+    }
+    public create(command: Command): ICloud<void, void, void> {
+        const cloud = new Cloud(command.gclouPath)
+        return {
+            createMachine(name: string, _: void): Promise<Error | null> {
+                /* Get machine type */
+                let machineType: string | ICustumMachineType | null = null
+                if (command.machineType !== undefined) {
+                    machineType = command.machineType
+                } else if (command.vcpu !== undefined && command.memory !== undefined) {
+                    machineType = { vCPU: command.vcpu, memory: command.memory }
+                } else {
+                    return Promise.resolve(new Error("No machine type is specified"))
+                }
+
+                /* Get accerelator */
+                const accelerators = command.accelerator
+                if (accelerators instanceof Error) {
+                    return Promise.resolve(accelerators)
+                }
+                return cloud.createMachine(name, {
+                    accelerators,
+                    machineType,
+                    preemptible: command.preemptible,
+                    zone: command.zone,
+                })
+            },
+            getPublicIpAddress(name: string, _: void): Promise<Error | string> {
+                return cloud.getPublicIpAddress(name, {zone: command.zone})
+            },
+            terminateMachine(name: string, _: void): Promise<Error | null> {
+                return cloud.terminateMachine(name, {zone: command.zone})
+            },
+        }
     }
 }

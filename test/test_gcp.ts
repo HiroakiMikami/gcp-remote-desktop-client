@@ -16,7 +16,7 @@ describe("Cloud", () => {
                 history[0].should.deep.equal([
                     "beta", "compute", "instances", "create",
                     "test", "--machine-type=n1-highmem-4",
-                    "--disk-name=test,device-name=test,mode=rw,boot=yes"])
+                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
                 history[1].should.deep.equal(["compute", "instances", "start", "test"])
             })
         })
@@ -30,7 +30,7 @@ describe("Cloud", () => {
                 history[0].should.deep.equal([
                     "beta", "compute", "instances", "create",
                     "test", "--machine-type=custum-24-102400",
-                    "--disk-name=test,device-name=test,mode=rw,boot=yes"])
+                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
             })
         })
         it("add accelerator", () => {
@@ -49,7 +49,7 @@ describe("Cloud", () => {
                     "test",
                     "--accelerator", "type=nvidia-tesla-k80,count=1",
                     "--machine-type=n1-highmem-4",
-                    "--disk-name=test,device-name=test,mode=rw,boot=yes"])
+                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
             })
         })
         it("specify the zone", () => {
@@ -62,7 +62,7 @@ describe("Cloud", () => {
                 history[0].should.deep.equal([
                     "beta", "compute", "instances", "create",
                     "test", "--zone=zone", "--machine-type=n1-highmem-4",
-                    "--disk-name=test,device-name=test,mode=rw,boot=yes"])
+                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
                 history[1].should.deep.equal([
                     "compute", "instances", "start",
                     "test", "--zone=zone"])
@@ -106,7 +106,8 @@ describe("Cloud", () => {
                 history[0].should.deep.equal([
                     "compute", "instances", "stop",
                     "test"])
-                history[1].should.deep.equal(["compute", "instances", "delete", "test"])
+                history[1].should.deep.equal(["--quiet", "compute", "instances", "delete",
+                    "--keep-disks", "all", "test"])
             })
         })
         it("specify the zone", () => {
@@ -121,7 +122,8 @@ describe("Cloud", () => {
                     "compute", "instances", "stop",
                     "--zone=zone",
                     "test"])
-                history[1].should.deep.equal(["compute", "instances", "delete", "--zone=zone", "test"])
+                history[1].should.deep.equal(["--quiet", "compute", "instances", "delete",
+                    "--keep-disks", "all", "--zone=zone", "test"])
             })
         })
     })
