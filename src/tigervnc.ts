@@ -1,7 +1,7 @@
 import { Command } from "commander"
 import * as os from "os"
 import * as path from "path"
-import { doNothing, toFunction } from "./utils"
+import { Executable } from "./executable"
 import { IVncViewer, IVncViewerBuilder } from "./vnc_viewer"
 
 export interface IOptions {
@@ -10,18 +10,19 @@ export interface IOptions {
     qualityLevel?: number
 }
 
-type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<Error | null>
+type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<null>
 
 export class VncViewer implements IVncViewer<IOptions> {
     private vncViewerCommand: VncViewerCommand
     constructor(vncViewerCommand: string | VncViewerCommand = "vncviewer") {
         if (typeof(vncViewerCommand) === "string") {
-            this.vncViewerCommand = toFunction(vncViewerCommand, doNothing)
+            const vncviewer = new Executable(vncViewerCommand)
+            this.vncViewerCommand = (args: string[]) => vncviewer.execute(args).then(() => null)
         } else {
             this.vncViewerCommand = vncViewerCommand
         }
     }
-    public connect(port: number, options: IOptions): Promise<Error> {
+    public async connect(port: number, options: IOptions): Promise<null> {
         const args = []
         if (options.passwordFile !== undefined) {
             args.push("-PasswordFile")
@@ -36,7 +37,8 @@ export class VncViewer implements IVncViewer<IOptions> {
             args.push(`${options.qualityLevel}`)
         }
         args.push(`::${port}`)
-        return this.vncViewerCommand(args)
+        await this.vncViewerCommand(args)
+        return null
     }
 }
 
@@ -52,7 +54,7 @@ export class VncViewerBuilder implements IVncViewerBuilder {
     public create(command: Command): IVncViewer<void> {
         const viewer = new VncViewer(command.vncviewer_path)
         return {
-            connect(port: number, _: void): Promise<Error> {
+            connect(port: number, _: void): Promise<null> {
                 return viewer.connect(port, {
                     compressLevel: command.compressLevel,
                     passwordFile: command.passwordFile,

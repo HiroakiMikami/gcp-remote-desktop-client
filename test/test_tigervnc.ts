@@ -3,37 +3,40 @@ const should = chai.should()
 
 import { VncViewer } from "../src/tigervnc"
 
-describe("VncViewer", () => {
-    describe("#connect", () => {
-        it("creates command line arguments for TigerVNC Viewer", () => {
-            const command = new VncViewer((args) => {
-                args.should.deep.equal(["::5901"])
-                return Promise.resolve(null)
+describe("TigerVNC", () => {
+    describe("VncViewer", () => {
+        describe("#connect", () => {
+            it("creates command line arguments for TigerVNC Viewer", () => {
+                const command = new VncViewer((args) => {
+                    args.should.deep.equal(["::5901"])
+                    return Promise.resolve(null)
+                })
+                return command.connect(5901, {})
             })
-            return command.connect(5901, {})
-        })
-        it("add identity file to command line arguments if options are set", () => {
-            const command = new VncViewer((args) => {
-                args.should.deep.equal([
-                    "-PasswordFile", "~/.vnc/passwd", "-CompressLevel", "0", "-QualityLevel", "1",
-                    "::5901"])
-                return Promise.resolve(null)
+            it("add identity file to command line arguments if options are set", () => {
+                const command = new VncViewer((args) => {
+                    args.should.deep.equal([
+                        "-PasswordFile", "~/.vnc/passwd", "-CompressLevel", "0", "-QualityLevel", "1",
+                        "::5901"])
+                    return Promise.resolve(null)
+                })
+                return command.connect(5901,
+                                    {passwordFile: "~/.vnc/passwd", compressLevel: 0, qualityLevel: 1})
             })
-            return command.connect(5901,
-                                  {passwordFile: "~/.vnc/passwd", compressLevel: 0, qualityLevel: 1})
-        })
-        it("return null code if the command exists", () => {
-            const command = new VncViewer(":")
-            const retval = command.connect(5901, {})
-            return retval.then((error) => {
-                should.not.exist(error)
+            it("return null if the command exists", async () => {
+                const command = new VncViewer(":")
+                const retval = await command.connect(5901, {})
+                should.not.exist(retval)
             })
-        })
-        it("return exit code if the command is not found", () => {
-            const command = new VncViewer("./not-found")
-            const retval = command.connect(5901, {})
-            return retval.then((error) => {
-                should.exist(error)
+            it("reject with an error if the command is not found", async () => {
+                const command = new VncViewer("./not-found")
+
+                try {
+                    await command.connect(5901, {})
+                } catch (err) {
+                    return null
+                }
+                should.exist(null) // Failure
             })
         })
     })
