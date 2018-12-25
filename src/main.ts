@@ -5,6 +5,7 @@ import * as os from "os"
 import * as GCP from "./gcp"
 import * as OpenSSH from "./openssh"
 import * as TigerVNC from "./tigervnc"
+import { parseIntWithDefaultValue } from "./utils"
 
 const backendOptions = new Command()
 
@@ -52,10 +53,10 @@ new Promise((resolve) => {
     command
         .arguments("<name>[:display-number|::port]")
         .action((nameArg) => nameArgument = nameArg)
-        .option("--local-port <port>", "The port number of the localhost", -1)
+        .option("--local-port <port>", "The port number of the localhost", parseIntWithDefaultValue, -1)
     /* options for ssh client */
     command
-        .option("-p, --port <port>", "The port number", parseInt, 22)
+        .option("-p, --port <port>", "The port number", parseIntWithDefaultValue, 22)
         .option("-l, --login-name <login_name>", "The login name", os.userInfo().username)
     command = getSshClientBuilder().commandLineArguments(command)
     /* options for vncviewer */
@@ -98,7 +99,7 @@ new Promise((resolve) => {
         }
 
         /* SSH port forwarding */
-        let localPort = parseInt(command.localPort, 10)
+        let localPort = command.localPort
         if (localPort < 0) {
             localPort = port
         }
@@ -111,7 +112,7 @@ new Promise((resolve) => {
         }
 
         /* Connect to VM via vncviewer */
-        let localPort = parseInt(command.localPort, 10)
+        let localPort = command.localPort
         if (localPort < 0) {
             localPort = port
         }

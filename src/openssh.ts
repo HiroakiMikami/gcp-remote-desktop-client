@@ -1,6 +1,6 @@
 import { Command } from "commander"
 import { ISshClient, ISshClientBuilder } from "./ssh_client"
-import { doNothing, retry, toFunction } from "./utils"
+import { doNothing, parseIntWithDefaultValue, retry, toFunction } from "./utils"
 
 export interface IOptions {
     identityFile?: string
@@ -37,11 +37,11 @@ export class SshClientBuilder implements ISshClientBuilder {
     public commandLineArguments(command: Command): Command {
         return command
             .option("--ssh-path <command>", "The path of `ssh` command", "ssh")
-            .option("--ssh-timeout-time <time[sec]>", "The timeout time", 0)
+            .option("--ssh-timeout-time <time[sec]>", "The timeout time", parseIntWithDefaultValue, 0)
             .option("-i, --identity-file <identity_file>", "The path of identitiy file", undefined)
     }
     public create(command: Command): ISshClient<void> {
-        const client = new SshClient(command.sshPath, parseInt(command.sshTimeoutTime, 10))
+        const client = new SshClient(command.sshPath, command.sshTimeoutTime)
         return {
             portForward(port: number, username: string, hostname: string, from: number, to: number,
                         _: void): Promise<Error> {

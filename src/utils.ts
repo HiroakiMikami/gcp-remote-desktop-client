@@ -1,5 +1,9 @@
 import { ChildProcess, spawn } from "child_process"
 
+export function parseIntWithDefaultValue(value: string, _: number) {
+    return parseInt(value, 10)
+}
+
 /**
  *
  * @param procedure The function to execute
@@ -61,6 +65,7 @@ export function getResultFromStdout<Result>(getResult: (stdout: string) => Resul
 
 export function toFunction<Result>(command: string, getResult: GetResult<Result>) {
     return (args: ReadonlyArray<string>)  => {
+        console.error(command, args)
         const process = spawn(command, args, {shell: true})
         return getResult(command, args, process)
     }

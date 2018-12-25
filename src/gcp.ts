@@ -108,6 +108,21 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
     }
 }
 
+function parseAccelerator(value: string, _: ReadonlyArray<IAccelerator>) {
+    const accelerators = []
+    try {
+        const xs = value.split(",")
+        for (const x of xs) {
+            if (x.length === 0) { continue }
+            const [type, count] = x.split("=")
+            accelerators.push({ deviceType: type, count: parseInt(count, 10) })
+        }
+    } catch (error) {
+        return error
+    }
+    return accelerators
+}
+
 export class CloudBuilder implements ICloudBuilder {
     public commandLineArguments(command: Command): Command {
         return command
@@ -115,7 +130,7 @@ export class CloudBuilder implements ICloudBuilder {
             .option("--machine-type <machine_type>", "The machine type", undefined)
             .option("--vcpu <n>", "The number of CPUs", undefined)
             .option("--memory <n>", "The required memory [GB]", undefined)
-            .option("--accelerator [type=count,...]", "The accelerator", "")
+            .option("--accelerator [type=count,...]", "The accelerator", parseAccelerator, [])
             .option("--preemptible", "Use preemptible VM", false)
             .option("--zone <zone>", "The zone", undefined)
     }
@@ -134,16 +149,9 @@ export class CloudBuilder implements ICloudBuilder {
                 }
 
                 /* Get accerelator */
-                const accelerators = []
-                try {
-                    const xs = command.accelerator.split(",")
-                    for (const x of xs) {
-                        if (x.length === 0) { continue }
-                        const [type, count] = x.split("=")
-                        accelerators.push({ deviceType: type, count: parseInt(count, 10) })
-                    }
-                } catch (error) {
-                    return Promise.resolve(error)
+                const accelerators = command.accelerator
+                if (accelerators instanceof Error) {
+                    return Promise.resolve(accelerators)
                 }
                 return cloud.createMachine(name, {
                     accelerators,
