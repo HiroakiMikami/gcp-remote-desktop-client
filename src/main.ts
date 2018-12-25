@@ -9,14 +9,10 @@ import { OnExit } from "./ssh_client"
 import * as TigerVNC from "./tigervnc"
 import { parseIntWithDefaultValue } from "./utils"
 
-const backendOptions = new Command()
-
-let name: string | null = null
-let port: number | null = null
-
 const logger = log4js.getLogger()
 
 async function main() {
+    const backendOptions = new Command()
     const args = await new Promise<string[]>((resolve) => {
         backendOptions
             .version("0.0.1")
@@ -81,6 +77,8 @@ async function main() {
     const vncviewer = getVncViewerBuilder().create(command)
     const cloud = getCloudBuilder().create(command)
 
+    let name: string | null = null
+    let port: number | null = null
     let onExit: OnExit | null = null
     try {
         /* parse nameArgument */
