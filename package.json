@@ -3,7 +3,9 @@
   "name": "cloud-linux-desktop-client",
   "version": "0.0.1",
   "description": "",
-  "main": "build/src/main.js",
+  "bin": {
+    "cloud-linux-desktop-client": "build/src/main.js"
+  },
   "scripts": {
     "compile": "$(npm bin)/tsc -p ./",
     "doc": "$(npm bin)/typedoc --out doc ./src/",
