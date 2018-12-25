@@ -90,10 +90,7 @@ async function main() {
         if (port === null) {
             throw new Error(`A port or display-number is not specified.`)
         }
-        let localPort = command.localPort
-        if (localPort < 0) {
-            localPort = port
-        }
+        const localPort = (command.localPort < 0) ? port : command.localPort
 
         /* Create VM */
         await cloud.createMachine(name, null)
