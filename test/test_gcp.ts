@@ -95,7 +95,7 @@ describe("GCP", () => {
                     args.should.deep.equal(["compute", "instances", "list",
                         "--filter=\"name=test\"",
                         "--format='value(networkInterfaces[0].accessConfigs[0].natIP)'",
-                        "--zones=zone"])
+                        "--filter=\"zone:( zone )\""])
                     return Promise.resolve("result")
                 })
                 await gcp.getPublicIpAddress("test", { zone: "zone" })

@@ -86,7 +86,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
                     `--filter="name=${name}"`,
                     "--format='value(networkInterfaces[0].accessConfigs[0].natIP)'"]
         if (options.zone !== undefined) {
-            args.push(`--zones=${options.zone}`)
+            args.push(`--filter="zone:( ${options.zone} )"`)
         }
         const result = await this.gcloudCommandWithStdout(args)
         return result.split("\n")[0]

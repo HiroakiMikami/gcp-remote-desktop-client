@@ -100,7 +100,11 @@ async function main() {
         if (port === null) {
             throw new Error(`A port or display-number is not specified.`)
         }
+        logger.info(`name: ${name}`)
+        logger.info(`port (${name}): ${port}`)
+
         const localPort = (command.localPort < 0) ? port : command.localPort
+        logger.info(`port (localhost): ${localPort}`)
 
         /* Create VM */
         logger.info(`Create VM (${name})`)
@@ -108,7 +112,7 @@ async function main() {
         /* Get public IP address */
         logger.info(`Get public IP address of ${name}`)
         const ip = await cloud.getPublicIpAddress(name, null)
-        logger.info(`IP address of ${name}: ${ip}`)
+        logger.info(`IP address: ${ip}`)
         /* SSH port forwarding */
         logger.info(`Port forwarding`)
         onExit = await ssh.portForward(command.port, command.loginName, ip,
