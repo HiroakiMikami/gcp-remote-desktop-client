@@ -1,4 +1,5 @@
-import { ISshClient } from "./ssh_client"
+import { Command } from "commander"
+import { ISshClient, ISshClientBuilder } from "./ssh_client"
 import { doNothing, toFunction } from "./utils"
 
 export interface IOptions {
@@ -28,5 +29,22 @@ export class SshClient implements ISshClient<IOptions> {
         }
         args.push(hostname)
         return this.sshCommand(args)
+    }
+}
+
+export class SshClientBuilder implements ISshClientBuilder {
+    public commandLineArguments(command: Command): Command {
+        return command
+            .option("--ssh-path <command>", "The path of `ssh` command", "ssh")
+            .option("-i, --identity-file <identity_file>", "The path of identitiy file", undefined)
+    }
+    public create(command: Command): ISshClient<void> {
+        const client = new SshClient(command.sshPath)
+        return {
+            portForward(port: number, username: string, hostname: string, from: number, to: number,
+                        _: void): Promise<Error> {
+                return client.portForward(port, username, hostname, from, to, { identityFile: command.identityFile})
+            },
+        }
     }
 }
