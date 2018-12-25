@@ -4,6 +4,7 @@ import { Command } from "commander"
 import * as os from "os"
 import * as GCP from "./gcp"
 import * as OpenSSH from "./openssh"
+import { OnExit } from "./ssh_client"
 import * as TigerVNC from "./tigervnc"
 import { parseIntWithDefaultValue } from "./utils"
 
@@ -106,9 +107,9 @@ new Promise((resolve) => {
         return ssh.portForward(command.port, command.loginName, result,
                             port, localPort,
                             null)
-    }).then((result) => {
+    }).then(((result) => {
         if (result instanceof Error) {
-            return result
+            return Promise.resolve(result)
         }
 
         /* Connect to VM via vncviewer */
@@ -116,12 +117,19 @@ new Promise((resolve) => {
         if (localPort < 0) {
             localPort = port
         }
-        return vncviewer.connect(localPort, null)
-    }).then((result) => {
+        return vncviewer.connect(localPort, null).then((r) => {
+            if (r instanceof Error) {
+                console.log(r)
+            }
+            return result
+        })
+    }) as (result: Error | OnExit) => Promise<Error | OnExit>).then((result) => {
         if (result instanceof Error) {
             console.log(result)
         }
 
+        /* Stop port forwarding */
+        (result as OnExit)()
         /* Terimnate VM */
         return cloud.terminateMachine(name, null)
     })
