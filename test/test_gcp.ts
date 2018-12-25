@@ -52,6 +52,19 @@ describe("Cloud", () => {
                     "--disk=name=test,device-name=test,mode=rw,boot=yes"])
             })
         })
+        it("specify the tags", () => {
+            const history: Array<{}> = []
+            const gcp = new Cloud((args) => {
+                history.push(args)
+                return Promise.resolve("result")
+            })
+            return gcp.createMachine("test", { machineType: "n1-highmem-4", tags: ["foo", "bar"] }).then(() => {
+                history[0].should.deep.equal([
+                    "beta", "compute", "instances", "create",
+                    "test", "--tags=foo,bar", "--machine-type=n1-highmem-4",
+                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
+            })
+        })
         it("specify the zone", () => {
             const history: Array<{}> = []
             const gcp = new Cloud((args) => {
