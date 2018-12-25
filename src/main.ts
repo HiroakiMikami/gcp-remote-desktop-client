@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander"
+import * as log4js from "log4js"
 import * as os from "os"
 import * as GCP from "./gcp"
 import * as OpenSSH from "./openssh"
@@ -13,6 +14,8 @@ const backendOptions = new Command()
 let name: string | null = null
 let port: number | null = null
 
+const logger = log4js.getLogger()
+
 async function main() {
     const args = await new Promise<string[]>((resolve) => {
         backendOptions
@@ -21,6 +24,7 @@ async function main() {
             .option("--ssh <ssh-backend>", "the backend of ssh", "OpenSSH")
             .option("--vncviewer <vncviewer-backend>", "the backend of vncviewer", "TigerVNC")
             .option("--cloud <cloud-service>", "the cloud service", "GCP")
+            .option("--log-level <level>", "One of followings: [trace, debug, info, warn, error, fatal]", "info")
             .on("command:*", (xs) => {
                 xs.unshift(process.argv[1])
                 xs.unshift(process.argv[0])
@@ -28,6 +32,11 @@ async function main() {
             })
             .parse(process.argv)
     })
+    logger.level = backendOptions.logLevel
+
+    logger.debug(`ssh backend: ${backendOptions.ssh}`)
+    logger.debug(`vncviewer backend: ${backendOptions.vncviewer}`)
+    logger.debug(`cloud backend: ${backendOptions.cloud}`)
 
     function getSshClientBuilder() {
         if (backendOptions.ssh === "OpenSSH") {
@@ -75,6 +84,7 @@ async function main() {
     let onExit: OnExit | null = null
     try {
         /* parse nameArgument */
+        logger.info(`Parse nameArgument(${nameArgument})`)
         if (nameArgument.lastIndexOf("::") !== -1) {
             name = nameArgument.substr(0, nameArgument.lastIndexOf("::"))
             port = parseInt(nameArgument.substr(2 + nameArgument.lastIndexOf("::")), 10)
@@ -93,23 +103,30 @@ async function main() {
         const localPort = (command.localPort < 0) ? port : command.localPort
 
         /* Create VM */
+        logger.info(`Create VM (${name})`)
         await cloud.createMachine(name, null)
         /* Get public IP address */
+        logger.info(`Get public IP address of ${name}`)
         const ip = await cloud.getPublicIpAddress(name, null)
+        logger.info(`IP address of ${name}: ${ip}`)
         /* SSH port forwarding */
+        logger.info(`Port forwarding`)
         onExit = await ssh.portForward(command.port, command.loginName, ip,
                                             port, localPort, null)
         /* Connect to VM via vncviewer */
+        logger.info(`Connect to ${name} via vncviewer`)
         await vncviewer.connect(localPort, null)
     } catch (err) {
-        console.log(err)
+        logger.warn(err)
     }
 
-    /* Stop port forwarding */
     if (onExit !== null) {
+        /* Stop port forwarding */
+        logger.info(`Stop port forwarding`)
         onExit()
     }
     /* Terimnate VM */
+    logger.info(`Terminate VM (${name})`)
     return cloud.terminateMachine(name, null)
 }
 

@@ -1,4 +1,6 @@
 import { ChildProcess, spawn } from "child_process"
+import * as log4js from "log4js"
+const logger = log4js.getLogger()
 
 export interface IResult {
     stdout: string | null
@@ -9,7 +11,7 @@ export interface IResult {
 export class Executable {
     constructor(private command: string) {}
     public async execute(args: string[], useStdout= false, useStderr= false): Promise<IResult> {
-        console.error(this.command, args)
+        logger.debug(`+ ${this.command} ${args.join(" ")}`)
         return new Promise<IResult>((resolve, reject) => {
             const p = spawn(this.command, args, {shell: true})
             let stdout: string | null =  null
