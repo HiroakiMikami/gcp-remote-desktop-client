@@ -38,15 +38,6 @@ describe("TigerVNC", () => {
                 }
                 should.exist(null) // Failure
             })
-            it("fail if the command outputs 'refused'", async () => {
-                const command = new VncViewer("echo")
-                try {
-                       await command.connect(0, { passwordFile: "refused"})
-                } catch (err) {
-                     return null
-                }
-                should.exist(null) // Failure
-            })
         })
     })
 })
