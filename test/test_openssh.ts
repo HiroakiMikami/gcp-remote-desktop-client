@@ -50,7 +50,7 @@ describe("OpenSSH", () => {
                     fs.writeFileSync(tmpFile.name, "foobar")
 
                     return Promise.resolve(null)
-                }, 0, tmpFile.name)
+                }, 0, 0, tmpFile.name)
                 const onexit = await command.portForward(22, "user", "localhost", 1022, 8022, {})
                 await onexit()
                 fs.readFileSync(tmpFile.name).toString().should.equal("original")

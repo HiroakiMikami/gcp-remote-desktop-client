@@ -17,6 +17,7 @@ type SshCommand = (options: ReadonlyArray<string>) => Promise<ChildProcess>
 export class SshClient implements ISshClient<IOptions> {
     private sshCommand: SshCommand
     constructor(sshCommand: string | SshCommand = "ssh", private timeoutTime: number = 0,
+                private waitAfterSuccessTime: number = 0,
                 private knownHostsPath = path.join(os.homedir(), ".ssh", "known_hosts")) {
         if (isString(sshCommand)) {
             const ssh = new Executable(sshCommand)
@@ -42,6 +43,8 @@ export class SshClient implements ISshClient<IOptions> {
         const restoreFile = await backupFile(this.knownHostsPath)
         /* Port forward */
         const p = await retry(() => this.sshCommand(args), this.timeoutTime)
+        /* Wait */
+        await new Promise((resolve) => setTimeout(resolve, this.waitAfterSuccessTime * 1000))
         return () => {
             if (p !== null) {
                 p.kill() // Finish
@@ -59,10 +62,12 @@ export class SshClientBuilder implements ISshClientBuilder {
             .option("--ssh-path <command>", "The path of `ssh` command", "ssh")
             .option("--ssh-timeout-time <time[sec]>", "The timeout time",
                     parseIntWithDefaultValue, configs["ssh-timeout-time"] || 0)
+            .option("--ssh-wait-after-success-time <time[sec]>", "The wait time after success",
+                    parseIntWithDefaultValue, configs["ssh-wait-after-success-time"] || 0)
             .option("-i, --identity-file <identity_file>", "The path of identitiy file", configs["identity-file"])
     }
     public create(command: Command): ISshClient<void> {
-        const client = new SshClient(command.sshPath, command.sshTimeoutTime)
+        const client = new SshClient(command.sshPath, command.sshTimeoutTime, command.sshWaitAfterSuccessTime)
         return {
             portForward(port: number, username: string, hostname: string, from: number, to: number,
                         _: void): Promise<OnExit> {
