@@ -41,4 +41,7 @@ describe("#merge", () => {
         merge({ c: 10 }, { c: "c2" }).should.deep.equal({ c: "c2" })
         merge({ c: { k1: 10 } }, { c: { k2: 20 }}).should.deep.equal({ c: { k1: 10, k2: 20 }})
     })
+    it("handle arrays properly", () => {
+        merge([], [1, 2, 3]).should.deep.equal([1, 2, 3])
+    })
 })
