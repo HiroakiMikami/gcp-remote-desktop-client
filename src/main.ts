@@ -105,7 +105,7 @@ async function main() {
     let command = new Command()
     command
         .option("--local-port <port>", "The port number of the localhost",
-                parseIntWithDefaultValue, configs["local-port"])
+                parseIntWithDefaultValue, configs["local-port"] || -1)
     /* options for ssh client */
     command
         .option("-p, --port <port>", "The port number", parseIntWithDefaultValue, configs.port || 22)
