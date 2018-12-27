@@ -34,18 +34,21 @@ export function copy(config: Configurations): Configurations {
 }
 
 export function merge(c1: Configurations, c2: Configurations): Configurations {
+    if (isArray(c2)) {
+        return copy(c2)
+    }
+    if (!isObject(c2)) {
+        return c2
+    }
+
     const retval: any = {}
-    if (isObject(c1)) {
+    if (!isArray(c1) && isObject(c1)) {
         for (const key of Object.keys(c1)) {
             retval[key] = copy(c1[key])
         }
     }
-    if (isObject(c2)) {
-        for (const key of Object.keys(c2)) { // overwrite
-            retval[key] = merge(retval[key], c2[key])
-        }
-    } else {
-        return copy(c2)
+    for (const key of Object.keys(c2)) { // overwrite
+        retval[key] = merge(retval[key], c2[key])
     }
 
     return retval
