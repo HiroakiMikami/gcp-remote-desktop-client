@@ -15,7 +15,7 @@ describe("OpenSSH", () => {
                     ])
                     return Promise.resolve(null)
                 })
-                return command.portForward(22, "user", "localhost", 1022, 8022, {})
+                return command.portForward("localhost", 1022, 8022, { port: 22, username: "user" })
             })
             it("add identity file to command line arguments if identityFile is not null", () => {
                 const command = new SshClient((args) => {
@@ -25,19 +25,19 @@ describe("OpenSSH", () => {
                     ])
                     return Promise.resolve(null)
                 })
-                return command.portForward(22, "user", "localhost", 1022, 8022,
-                                        {identityFile: "~/.ssh/id_rsa" })
+                return command.portForward("localhost", 1022, 8022,
+                                        { port: 22, username: "user", identityFile: "~/.ssh/id_rsa" })
             })
             it("return onexit function if the command exists", async () => {
                 const command = new SshClient(":")
-                const onexit = await command.portForward(22, "user", "localhost", 22, 8022, {});
+                const onexit = await command.portForward("localhost", 22, 8022, { port: 22, username: "user" });
                 `${typeof(onexit)}`.toString().should.equal("function")
             })
             it("reject with an error if the command is not found", async () => {
                 const command = new SshClient("./not-found")
 
                 try {
-                    await command.portForward(22, "user", "localhost", 22, 8022, {})
+                    await command.portForward("localhost", 22, 8022, { port: 22, username: "user" })
                 } catch (err) {
                     return null
                 }
@@ -51,7 +51,7 @@ describe("OpenSSH", () => {
 
                     return Promise.resolve(null)
                 }, 0, 0, tmpFile.name)
-                const onexit = await command.portForward(22, "user", "localhost", 1022, 8022, {})
+                const onexit = await command.portForward("localhost", 1022, 8022, { port: 22, username: "user" })
                 await onexit()
                 fs.readFileSync(tmpFile.name).toString().should.equal("original")
             })

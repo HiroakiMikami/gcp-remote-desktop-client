@@ -100,9 +100,6 @@ async function main() {
         .option("--local-port <port>", "The port number of the localhost",
                 parseIntWithDefaultValue, configs["local-port"] || -1)
     /* options for ssh-client */
-    command
-        .option("-p, --port <port>", "The port number", parseIntWithDefaultValue, configs.port || 22)
-        .option("-l, --login-name <login_name>", "The login name", configs["login-name"] || os.userInfo().username)
     command = getSshClientBuilder().commandLineArguments(command, configs[backendOptions["ssh-client"]] || {})
     /* options for vnc-viewer */
     command = getVncViewerBuilder().commandLineArguments(command, configs[backendOptions["vnc-viewer"]] || {})
@@ -129,8 +126,7 @@ async function main() {
         logger.info(`IP address: ${ip}`)
         /* SSH port forwarding */
         logger.info(`Port forwarding`)
-        onExit = await sshClient.portForward(command.port, command.loginName, ip,
-                                            port, localPort, null)
+        onExit = await sshClient.portForward(ip, port, localPort, null)
         /* Connect to VM via vnc-viewer */
         logger.info(`Connect to ${name} via vnc-viewer`)
         await vncViewer.connect(localPort, null)
