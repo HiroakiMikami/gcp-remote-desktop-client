@@ -15,8 +15,8 @@ const logger = log4js.getLogger()
 
 async function main() {
     const configDir =
-        process.env.CLOUD_LINUX_DESKTOP_CLIENT_GLOBAL_CONFIG_DIR ||
-            path.join(os.homedir(), ".config", "cloud-linux-desktop-client")
+        process.env.GCP_REMOTE_DESKTOP_CLIENT_GLOBAL_CONFIG_DIR ||
+            path.join(os.homedir(), ".config", "gcp-remote-desktop-client")
     const globalConfigPath = path.join(configDir, "global_config.json")
     logger.info(`global config file: ${globalConfigPath}`)
     logger.info(`Load the global config file: ${globalConfigPath}`)
