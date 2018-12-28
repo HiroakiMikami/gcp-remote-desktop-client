@@ -21,7 +21,7 @@ describe("TigerVNC", () => {
                     return Promise.resolve(null)
                 })
                 return command.connect(5901,
-                                    {passwordFile: "~/.vnc/passwd", compressLevel: 0, qualityLevel: 1})
+                                    { PasswordFile: "~/.vnc/passwd", CompressLevel: 0, QualityLevel: 1 })
             })
             it("return null if the command exists", async () => {
                 const command = new VncViewer(":")

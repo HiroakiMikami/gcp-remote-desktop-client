@@ -4,15 +4,9 @@ import { Configurations } from "./configurations"
 import { Executable } from "./executable"
 import { IVncViewer, IVncViewerBuilder } from "./vnc_viewer"
 
-export interface IOptions {
-    passwordFile?: string
-    compressLevel?: number
-    qualityLevel?: number
-}
-
 type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<null>
 
-export class VncViewer implements IVncViewer<IOptions> {
+export class VncViewer implements IVncViewer<any> {
     private vncViewerCommand: VncViewerCommand
     constructor(vncViewerCommand: string | VncViewerCommand = "vncviewer") {
         if (isString(vncViewerCommand)) {
@@ -22,19 +16,13 @@ export class VncViewer implements IVncViewer<IOptions> {
             this.vncViewerCommand = vncViewerCommand
         }
     }
-    public async connect(port: number, options: IOptions): Promise<null> {
+    public async connect(port: number, options: any): Promise<null> {
         const args = []
-        if (options.passwordFile !== undefined) {
-            args.push("-PasswordFile")
-            args.push(options.passwordFile)
-        }
-        if (options.compressLevel !== undefined) {
-            args.push("-CompressLevel")
-            args.push(`${options.compressLevel}`)
-        }
-        if (options.qualityLevel !== undefined) {
-            args.push("-QualityLevel")
-            args.push(`${options.qualityLevel}`)
+        for (const key of Object.keys(options)) {
+            args.push(`-${key}`)
+            if (options[key] !== null) {
+                args.push(`${options[key]}`)
+            }
         }
         args.push(`::${port}`)
         await this.vncViewerCommand(args)
@@ -52,10 +40,7 @@ export class VncViewerBuilder implements IVncViewerBuilder {
         const viewer = new VncViewer(command.vncviewer_path)
         return {
             connect(port: number, _: void): Promise<null> {
-                return viewer.connect(port, {
-                    compressLevel: command.vncViewer["compress-level"],
-                    passwordFile: command.vncViewer["password-file"],
-                    qualityLevel: command.vncViewer["quality-level"] })
+                return viewer.connect(port, command.vncViewer)
             },
         }
     }

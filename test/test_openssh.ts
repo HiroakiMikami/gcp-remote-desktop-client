@@ -10,34 +10,23 @@ describe("OpenSSH", () => {
             it("creates command line arguments for SshClient", () => {
                 const command = new SshClient((args) => {
                     args.should.deep.equal([
-                        "-o", "StrictHostKeyChecking=no", "-fNT", "-p", "22", "-L", "8022:localhost:1022",
+                        "-o", "StrictHostKeyChecking=no", "-fNT", "-L", "8022:localhost:1022", "-p", "22",
                         "-l", "user", "localhost",
                     ])
                     return Promise.resolve(null)
                 })
-                return command.portForward("localhost", 1022, 8022, { port: 22, loginName: "user" })
-            })
-            it("add identity file to command line arguments if identityFile is not null", () => {
-                const command = new SshClient((args) => {
-                    args.should.deep.equal([
-                        "-o", "StrictHostKeyChecking=no", "-fNT", "-p", "22", "-L", "8022:localhost:1022",
-                        "-l", "user", "-i", "~/.ssh/id_rsa", "localhost",
-                    ])
-                    return Promise.resolve(null)
-                })
-                return command.portForward("localhost", 1022, 8022,
-                                        { port: 22, loginName: "user", identityFile: "~/.ssh/id_rsa" })
+                return command.portForward("localhost", 1022, 8022, { p: 22, l: "user" })
             })
             it("return onexit function if the command exists", async () => {
                 const command = new SshClient(":")
-                const onexit = await command.portForward("localhost", 22, 8022, { port: 22, loginName: "user" });
+                const onexit = await command.portForward("localhost", 22, 8022, { p: 22, l: "user" });
                 `${typeof(onexit)}`.toString().should.equal("function")
             })
             it("reject with an error if the command is not found", async () => {
                 const command = new SshClient("./not-found")
 
                 try {
-                    await command.portForward("localhost", 22, 8022, { port: 22, loginName: "user" })
+                    await command.portForward("localhost", 22, 8022, {})
                 } catch (err) {
                     return null
                 }
@@ -51,7 +40,7 @@ describe("OpenSSH", () => {
 
                     return Promise.resolve(null)
                 }, 0, 0, tmpFile.name)
-                const onexit = await command.portForward("localhost", 1022, 8022, { port: 22, loginName: "user" })
+                const onexit = await command.portForward("localhost", 1022, 8022, { p: 22, l: "user" })
                 await onexit()
                 fs.readFileSync(tmpFile.name).toString().should.equal("original")
             })
