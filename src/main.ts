@@ -32,7 +32,6 @@ async function main() {
             .usage("[backend-options] <name>[:display-number|::port] [options]")
             .option("--ssh <ssh-backend>", "the backend of ssh", globalConfig.ssh)
             .option("--vncviewer <vncviewer-backend>", "the backend of vncviewer", globalConfig.vncviewer)
-            .option("--cloud <cloud-service>", "the cloud service", globalConfig.cloud)
             .option("--log-level <level>",
                     "One of followings: [trace, debug, info, warn, error, fatal]",
                     globalConfig["log-level"])
@@ -48,7 +47,8 @@ async function main() {
 
     logger.debug(`ssh backend: ${backendOptions.ssh}`)
     logger.debug(`vncviewer backend: ${backendOptions.vncviewer}`)
-    logger.debug(`cloud backend: ${backendOptions.cloud}`)
+
+    const cloudBuilder = new GCP.CloudBuilder()
 
     function getSshClientBuilder() {
         if (backendOptions.ssh === "OpenSSH") {
@@ -62,13 +62,6 @@ async function main() {
             return new TigerVNC.VncViewerBuilder()
         } else {
             throw new Error(`Invalid vncviewer backend: ${backendOptions.vncviewer}`)
-        }
-    }
-    function getCloudBuilder() {
-        if (backendOptions.cloud === "GCP") {
-            return new GCP.CloudBuilder()
-        } else {
-            throw new Error(`Invalid cloud backend: ${backendOptions.cloud}`)
         }
     }
 
@@ -114,13 +107,13 @@ async function main() {
     /* options for vncviewer */
     command = getVncViewerBuilder().commandLineArguments(command, configs[backendOptions.vncviewer] || {})
     /* options for cloud */
-    command = getCloudBuilder().commandLineArguments(command, configs[backendOptions.cloud] || {})
+    command = cloudBuilder.commandLineArguments(command, configs[backendOptions.cloud] || {})
 
     command.parse(args)
 
     const ssh = getSshClientBuilder().create(command)
     const vncviewer = getVncViewerBuilder().create(command)
-    const cloud = getCloudBuilder().create(command)
+    const cloud = cloudBuilder.create(command)
 
     let onExit: OnExit | null = null
     try {
