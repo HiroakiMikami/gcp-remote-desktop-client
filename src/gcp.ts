@@ -140,12 +140,12 @@ export class CloudBuilder implements ICloudBuilder {
             .option("--memory <n>", "The required memory [GB]", configs.memory)
             .option("--accelerator [type=count,...]", "The accelerator", parseAccelerator, configs.accelerator || [])
         if (preemptible) {
-                command
-                    .option("--no-preemptible", `Not use preemptible VM (default=${preemptible})`, preemptible)
-            } else {
-                command
-                    .option("--preemptible", `Use preemptible VM (default=${preemptible})`, preemptible)
-            }
+            command
+                .option("--no-preemptible", `Not use preemptible VM (default=${preemptible})`, preemptible)
+        } else {
+            command
+                .option("--preemptible", `Use preemptible VM (default=${preemptible})`, preemptible)
+        }
         return command
             .option("--tags <tag1>[,<tag2>...]", "The network tags", parseTags, configs.tags)
             .option("--zone <zone>", "The zone", configs.zone)
