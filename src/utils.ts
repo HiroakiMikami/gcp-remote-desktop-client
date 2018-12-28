@@ -9,7 +9,7 @@ export function parseIntWithDefaultValue(value: string, _: number) {
 
 export function collectAdditionalOptions(value: string, configs: any) {
     if (value.indexOf("=") === -1) {
-        configs[value] = true
+        configs[value] = null
     } else {
         const key = value.substr(0, value.lastIndexOf("="))
         const val = value.substr(value.indexOf("=") + 1)
