@@ -29,6 +29,7 @@
     "@types/commander": "^2.12.2",
     "@types/log4js": "^2.3.5",
     "@types/mocha": "^5.2.0",
+    "@types/ssh2": "^0.5.37",
     "@types/tmp": "0.0.33",
     "chai": "^4.1.2",
     "mocha": "^5.1.1",
@@ -40,6 +41,7 @@
   },
   "dependencies": {
     "commander": "^2.19.0",
-    "log4js": "^3.0.6"
+    "log4js": "^3.0.6",
+    "ssh2": "^0.6.1"
   }
 }

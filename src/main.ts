@@ -7,6 +7,7 @@ import * as path from "path"
 import { load, merge } from "./configurations"
 import * as GCP from "./gcp"
 import * as OpenSSH from "./openssh"
+import * as ssh2 from "./ssh2"
 import { OnExit } from "./ssh_client"
 import * as TigerVNC from "./tigervnc"
 import { parseIntWithDefaultValue } from "./utils"
@@ -53,6 +54,8 @@ async function main() {
     function getSshClientBuilder() {
         if (backendOptions.ssh === "OpenSSH") {
             return new OpenSSH.SshClientBuilder()
+        } else if (backendOptions.ssh == "ssh2") {
+            return new ssh2.SshClientBuilder()
         } else {
             throw new Error(`Invalid ssh backend: ${backendOptions.ssh}`)
         }
