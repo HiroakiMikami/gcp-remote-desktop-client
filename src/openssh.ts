@@ -11,7 +11,7 @@ import { backupFile, parseIntWithDefaultValue, retry } from "./utils"
 export interface IOptions {
     identityFile?: string
     port: number
-    username: string
+    loginName: string
 }
 
 type SshCommand = (options: ReadonlyArray<string>) => Promise<ChildProcess>
@@ -34,7 +34,7 @@ export class SshClient implements ISshClient<IOptions> {
                         "-fNT",
                          "-p", `${options.port}`,
                          "-L", `${to}:localhost:${from}`,
-                         "-l", options.username]
+                         "-l", options.loginName]
         if (options.identityFile !== undefined) {
             args.push("-i")
             args.push(`${options.identityFile}`)
@@ -77,8 +77,8 @@ export class SshClientBuilder implements ISshClientBuilder {
                         _: void): Promise<OnExit> {
                 return client.portForward(hostname, from, to, {
                         identityFile: command.identityFile,
+                        loginName: command.loginName,
                         port: command.port,
-                        username: command.loginName,
                     })
             },
         }
