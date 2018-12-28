@@ -61,14 +61,11 @@ export class SshClient implements ISshClient<IOptions> {
 export class SshClientBuilder implements ISshClientBuilder {
     public commandLineArguments(command: Command, configs: Configurations): Command {
         return command
-            .option("-p, --port <port>", "The port number", parseIntWithDefaultValue, configs.port || 22)
-            .option("-l, --login-name <login_name>", "The login name", configs["login-name"] || os.userInfo().username)
-            .option("--ssh-path <command>", "The path of `ssh` command", "ssh")
+            .option("--ssh-path <command>", "The path of `ssh` command", configs["ssh-path"] || "ssh")
             .option("--ssh-timeout-time <time[sec]>", "The timeout time",
                     parseIntWithDefaultValue, configs["ssh-timeout-time"] || 0)
             .option("--ssh-wait-after-success-time <time[sec]>", "The wait time after success",
                     parseIntWithDefaultValue, configs["ssh-wait-after-success-time"] || 0)
-            .option("-i, --identity-file <identity_file>", "The path of identitiy file", configs["identity-file"])
     }
     public create(command: Command): ISshClient<void> {
         const client = new SshClient(command.sshPath, command.sshTimeoutTime, command.sshWaitAfterSuccessTime)
@@ -76,9 +73,9 @@ export class SshClientBuilder implements ISshClientBuilder {
             portForward(hostname: string, from: number, to: number,
                         _: void): Promise<OnExit> {
                 return client.portForward(hostname, from, to, {
-                        identityFile: command.identityFile,
-                        loginName: command.loginName,
-                        port: command.port,
+                        identityFile: command.sshClient["identity-file"],
+                        loginName: command.sshClient["login-name"] || os.userInfo().username,
+                        port: command.sshClient.port || 22,
                     })
             },
         }
