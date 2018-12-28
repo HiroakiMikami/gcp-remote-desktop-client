@@ -3,7 +3,7 @@ import { Command } from "commander"
 import * as os from "os"
 import * as path from "path"
 import { isString } from "util"
-import { Configurations } from "./configurations"
+import { Configurations, copy, merge } from "./configurations"
 import { Executable } from "./executable"
 import { ISshClient, ISshClientBuilder, OnExit } from "./ssh_client"
 import { backupFile, parseIntWithDefaultValue, retry } from "./utils"
@@ -16,7 +16,7 @@ export interface IOptions {
 
 type SshCommand = (options: ReadonlyArray<string>) => Promise<ChildProcess>
 
-export class SshClient implements ISshClient<IOptions> {
+export class SshClient implements ISshClient<any> {
     private sshCommand: SshCommand
     constructor(sshCommand: string | SshCommand = "ssh", private timeoutTime: number = 0,
                 private waitAfterSuccessTime: number = 0,
@@ -29,15 +29,15 @@ export class SshClient implements ISshClient<IOptions> {
         }
     }
     public async portForward(hostname: string, from: number, to: number,
-                             options: IOptions): Promise<OnExit> {
+                             options: any): Promise<OnExit> {
         const args = ["-o", "StrictHostKeyChecking=no",
-                        "-fNT",
-                         "-p", `${options.port}`,
-                         "-L", `${to}:localhost:${from}`,
-                         "-l", options.loginName]
-        if (options.identityFile !== undefined) {
-            args.push("-i")
-            args.push(`${options.identityFile}`)
+                       "-fNT",
+                       "-L", `${to}:localhost:${from}`]
+        for (const key of Object.keys(options)) {
+            args.push(`-${key}`)
+            if (options[key] !== null) {
+                args.push(`${options[key]}`)
+            }
         }
         args.push(hostname)
 
@@ -72,11 +72,12 @@ export class SshClientBuilder implements ISshClientBuilder {
         return {
             portForward(hostname: string, from: number, to: number,
                         _: void): Promise<OnExit> {
-                return client.portForward(hostname, from, to, {
-                        identityFile: command.sshClient["identity-file"],
-                        loginName: command.sshClient["login-name"] || os.userInfo().username,
-                        port: command.sshClient.port || 22,
-                    })
+                let options = copy(command.sshClient)
+                delete options["ssh-timeout-time"]
+                delete options["ssh-path"]
+                delete options["ssh-wait-after-success-time"]
+                options = merge( { p: 22, l: os.userInfo().username }, options)
+                return client.portForward(hostname, from, to, options)
             },
         }
     }
