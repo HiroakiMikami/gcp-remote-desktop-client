@@ -22,7 +22,7 @@ async function main() {
     logger.info(`Load the global config file: ${globalConfigPath}`)
 
     const tmpGlobalConfig = await load(globalConfigPath)
-    const globalConfig = merge({ ssh: "OpenSSH", vncviewer: "TigerVNC", cloud: "GCP", logLevel: "info" },
+    const globalConfig = merge({ "ssh-client": "OpenSSH",  "vnc-viewer": "TigerVNC", "log-level": "info" },
         tmpGlobalConfig)
 
     const backendOptions = new Command()
@@ -30,8 +30,8 @@ async function main() {
         backendOptions
             .version("0.0.1")
             .usage("[backend-options] <name>[:display-number|::port] [options]")
-            .option("--ssh <ssh-backend>", "the backend of ssh", globalConfig.ssh)
-            .option("--vncviewer <vncviewer-backend>", "the backend of vncviewer", globalConfig.vncviewer)
+            .option("--ssh-client <ssh-backend>", "the backend of ssh-client", globalConfig["ssh-client"])
+            .option("--vnc-viewer <vnc-viewer-backend>", "the backend of vnc-viewer", globalConfig["vnc-viewer"])
             .option("--log-level <level>",
                     "One of followings: [trace, debug, info, warn, error, fatal]",
                     globalConfig["log-level"])
@@ -45,23 +45,23 @@ async function main() {
 
     logger.level = backendOptions.logLevel
 
-    logger.debug(`ssh backend: ${backendOptions.ssh}`)
-    logger.debug(`vncviewer backend: ${backendOptions.vncviewer}`)
+    logger.debug(`ssh-client backend: ${backendOptions.sshClient}`)
+    logger.debug(`vnc-viewer backend: ${backendOptions.vncViewer}`)
 
     const cloudBuilder = new GCP.CloudBuilder()
 
     function getSshClientBuilder() {
-        if (backendOptions.ssh === "OpenSSH") {
+        if (backendOptions.sshClient === "OpenSSH") {
             return new OpenSSH.SshClientBuilder()
         } else {
-            throw new Error(`Invalid ssh backend: ${backendOptions.ssh}`)
+            throw new Error(`Invalid ssh-client backend: ${backendOptions.sshClient}`)
         }
     }
     function getVncViewerBuilder() {
-        if (backendOptions.vncviewer === "TigerVNC") {
+        if (backendOptions.vncViewer === "TigerVNC") {
             return new TigerVNC.VncViewerBuilder()
         } else {
-            throw new Error(`Invalid vncviewer backend: ${backendOptions.vncviewer}`)
+            throw new Error(`Invalid vnc-viewer backend: ${backendOptions.vncViewer}`)
         }
     }
 
@@ -99,20 +99,20 @@ async function main() {
     command
         .option("--local-port <port>", "The port number of the localhost",
                 parseIntWithDefaultValue, configs["local-port"] || -1)
-    /* options for ssh client */
+    /* options for ssh-client */
     command
         .option("-p, --port <port>", "The port number", parseIntWithDefaultValue, configs.port || 22)
         .option("-l, --login-name <login_name>", "The login name", configs["login-name"] || os.userInfo().username)
-    command = getSshClientBuilder().commandLineArguments(command, configs[backendOptions.ssh] || {})
-    /* options for vncviewer */
-    command = getVncViewerBuilder().commandLineArguments(command, configs[backendOptions.vncviewer] || {})
+    command = getSshClientBuilder().commandLineArguments(command, configs[backendOptions["ssh-client"]] || {})
+    /* options for vnc-viewer */
+    command = getVncViewerBuilder().commandLineArguments(command, configs[backendOptions["vnc-viewer"]] || {})
     /* options for cloud */
     command = cloudBuilder.commandLineArguments(command, configs[backendOptions.cloud] || {})
 
     command.parse(args)
 
-    const ssh = getSshClientBuilder().create(command)
-    const vncviewer = getVncViewerBuilder().create(command)
+    const sshClient = getSshClientBuilder().create(command)
+    const vncViewer = getVncViewerBuilder().create(command)
     const cloud = cloudBuilder.create(command)
 
     let onExit: OnExit | null = null
@@ -129,11 +129,11 @@ async function main() {
         logger.info(`IP address: ${ip}`)
         /* SSH port forwarding */
         logger.info(`Port forwarding`)
-        onExit = await ssh.portForward(command.port, command.loginName, ip,
+        onExit = await sshClient.portForward(command.port, command.loginName, ip,
                                             port, localPort, null)
-        /* Connect to VM via vncviewer */
-        logger.info(`Connect to ${name} via vncviewer`)
-        await vncviewer.connect(localPort, null)
+        /* Connect to VM via vnc-viewer */
+        logger.info(`Connect to ${name} via vnc-viewer`)
+        await vncViewer.connect(localPort, null)
     } catch (err) {
         logger.warn(err)
     }
