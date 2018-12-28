@@ -10,6 +10,8 @@ import { backupFile, parseIntWithDefaultValue, retry } from "./utils"
 
 export interface IOptions {
     identityFile?: string
+    port: number
+    loginName: string
 }
 
 type SshCommand = (options: ReadonlyArray<string>) => Promise<ChildProcess>
@@ -26,13 +28,13 @@ export class SshClient implements ISshClient<IOptions> {
             this.sshCommand = sshCommand
         }
     }
-    public async portForward(port: number, username: string, hostname: string, from: number, to: number,
+    public async portForward(hostname: string, from: number, to: number,
                              options: IOptions): Promise<OnExit> {
         const args = ["-o", "StrictHostKeyChecking=no",
                         "-fNT",
-                         "-p", `${port}`,
+                         "-p", `${options.port}`,
                          "-L", `${to}:localhost:${from}`,
-                         "-l", username]
+                         "-l", options.loginName]
         if (options.identityFile !== undefined) {
             args.push("-i")
             args.push(`${options.identityFile}`)
@@ -59,6 +61,8 @@ export class SshClient implements ISshClient<IOptions> {
 export class SshClientBuilder implements ISshClientBuilder {
     public commandLineArguments(command: Command, configs: Configurations): Command {
         return command
+            .option("-p, --port <port>", "The port number", parseIntWithDefaultValue, configs.port || 22)
+            .option("-l, --login-name <login_name>", "The login name", configs["login-name"] || os.userInfo().username)
             .option("--ssh-path <command>", "The path of `ssh` command", "ssh")
             .option("--ssh-timeout-time <time[sec]>", "The timeout time",
                     parseIntWithDefaultValue, configs["ssh-timeout-time"] || 0)
@@ -69,9 +73,13 @@ export class SshClientBuilder implements ISshClientBuilder {
     public create(command: Command): ISshClient<void> {
         const client = new SshClient(command.sshPath, command.sshTimeoutTime, command.sshWaitAfterSuccessTime)
         return {
-            portForward(port: number, username: string, hostname: string, from: number, to: number,
+            portForward(hostname: string, from: number, to: number,
                         _: void): Promise<OnExit> {
-                return client.portForward(port, username, hostname, from, to, { identityFile: command.identityFile})
+                return client.portForward(hostname, from, to, {
+                        identityFile: command.identityFile,
+                        loginName: command.loginName,
+                        port: command.port,
+                    })
             },
         }
     }
