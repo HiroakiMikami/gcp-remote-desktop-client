@@ -1,6 +1,4 @@
 import { Command } from "commander"
-import * as os from "os"
-import * as path from "path"
 import { isString } from "util"
 import { Configurations } from "./configurations"
 import { Executable } from "./executable"
@@ -47,22 +45,17 @@ export class VncViewer implements IVncViewer<IOptions> {
 export class VncViewerBuilder implements IVncViewerBuilder {
     public commandLineArguments(command: Command, configs: Configurations): Command {
         return command
-            .option("--vncviewer-path <command>", "The path of `vncviewer` command", "vncviewer")
-            .option("--password-file <password-file>", "The path of vnc password file",
-                configs["password-file"] || path.join(os.homedir(), ".vnc", "passwd"))
-            .option("--quality-level <q>", "The JPEG quality level, 0 = Low, 9 = High",
-                configs["quality-level"] || undefined)
-            .option("--compress-level <c>", "The compression level, 0 = Low, 9 = High",
-                configs["compress-level"] || undefined)
+            .option("--vncviewer-path <command>", "The path of `vncviewer` command",
+                    configs["vncviewer-path"] || "vncviewer")
         }
     public create(command: Command): IVncViewer<void> {
         const viewer = new VncViewer(command.vncviewer_path)
         return {
             connect(port: number, _: void): Promise<null> {
                 return viewer.connect(port, {
-                    compressLevel: command.compressLevel,
-                    passwordFile: command.passwordFile,
-                    qualityLevel: command.qualityLevel })
+                    compressLevel: command.vncViewer["compress-level"],
+                    passwordFile: command.vncViewer["password-file"],
+                    qualityLevel: command.vncViewer["quality-level"] })
             },
         }
     }

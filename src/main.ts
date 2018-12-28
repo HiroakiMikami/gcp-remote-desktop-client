@@ -9,7 +9,7 @@ import * as GCP from "./gcp"
 import * as OpenSSH from "./openssh"
 import { OnExit } from "./ssh_client"
 import * as TigerVNC from "./tigervnc"
-import { parseIntWithDefaultValue } from "./utils"
+import { collectAdditionalOptions, parseIntWithDefaultValue } from "./utils"
 
 const logger = log4js.getLogger()
 
@@ -103,11 +103,17 @@ async function main() {
         .option("--local-port <port>", "The port number of the localhost",
                 parseIntWithDefaultValue, configs["local-port"] || -1)
     /* options for ssh-client */
-    command = getSshClientBuilder().commandLineArguments(command, configs[backendOptions.sshClientModule] || {})
+    const sshConfigs = configs[backendOptions.sshClientModule] || {}
+    command = getSshClientBuilder().commandLineArguments(command, sshConfigs)
+    command.option("--ssh-client <key>=<value>", "The additional options for ssh-client",
+                   collectAdditionalOptions, sshConfigs)
     /* options for vnc-viewer */
-    command = getVncViewerBuilder().commandLineArguments(command, configs[backendOptions.vncViewerModule] || {})
+    const vncViewerConfigs = configs[backendOptions.vncViewerModule] || {}
+    command = getVncViewerBuilder().commandLineArguments(command, vncViewerConfigs)
+    command.option("--vnc-viewer <key>=<value>", "The additional options for vnc-viewer",
+                   collectAdditionalOptions, vncViewerConfigs)
     /* options for cloud */
-    command = cloudBuilder.commandLineArguments(command, configs[backendOptions.cloud] || {})
+    command = cloudBuilder.commandLineArguments(command, configs.GCP || {})
 
     command.parse(args)
 

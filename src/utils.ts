@@ -7,6 +7,17 @@ export function parseIntWithDefaultValue(value: string, _: number) {
     return parseInt(value, 10)
 }
 
+export function collectAdditionalOptions(value: string, configs: any) {
+    if (value.indexOf("=") === -1) {
+        configs[value] = true
+    } else {
+        const key = value.substr(0, value.lastIndexOf("="))
+        const val = value.substr(value.indexOf("=") + 1)
+        configs[key] = val
+    }
+    return configs
+}
+
 export async function backupFile(path: string): Promise<() => Promise<null>> {
     const exists = util.promisify(fs.exists)
     const readFile = util.promisify(fs.readFile)
