@@ -21,20 +21,18 @@ async function main() {
     logger.info(`global config file: ${globalConfigPath}`)
     logger.info(`Load the global config file: ${globalConfigPath}`)
 
-    const tmpGlobalConfig = await load(globalConfigPath)
-    const globalConfig = merge(
-        { "ssh-client-module": "OpenSSH",  "vnc-viewer-module": "TigerVNC", "log-level": "info" },
-        tmpGlobalConfig)
+    let globalConfig = await load(globalConfigPath)
+    globalConfig = merge(
+        { "ssh-client-module": process.env.GCP_REMOTE_DESKTOP_SSH_CLIENT_MODULE || "OpenSSH",
+          "vnc-viewer-module": process.env.GCP_REMOTE_DESKTOP_VNC_VIEWER_MODULE || "TigerVNC",
+          "log-level": "info" },
+        globalConfig)
 
     const backendOptions = new Command()
     const nameArgument = await new Promise<string>((resolve) => {
         backendOptions
             .version("0.0.1")
             .usage("[backend-options] <name>[:display-number|::port] [options]")
-            .option("--ssh-client-module <ssh-client-module>", "the module of ssh-client",
-                    globalConfig["ssh-client-module"])
-            .option("--vnc-viewer-module <vnc-viewer-module>", "the module of vnc-viewer",
-                    globalConfig["vnc-viewer-module"])
             .option("--log-level <level>",
                     "One of followings: [trace, debug, info, warn, error, fatal]",
                     globalConfig["log-level"])
@@ -48,23 +46,23 @@ async function main() {
 
     logger.level = backendOptions.logLevel
 
-    logger.debug(`ssh-client module: ${backendOptions.sshClientModule}`)
-    logger.debug(`vnc-viewer module: ${backendOptions.vncViewerModule}`)
+    logger.debug(`ssh-client module: ${globalConfig["ssh-client-module"]}`)
+    logger.debug(`vnc-viewer module: ${globalConfig["vnc-viewer-module"]}`)
 
     const cloudBuilder = new GCP.CloudBuilder()
 
     function getSshClientBuilder() {
-        if (backendOptions.sshClientModule === "OpenSSH") {
+        if (globalConfig["ssh-client-module"] === "OpenSSH") {
             return new OpenSSH.SshClientBuilder()
         } else {
-            throw new Error(`Invalid ssh-client module: ${backendOptions.sshClientModule}`)
+            throw new Error(`Invalid ssh-client module: ${globalConfig["ssh-client-module"]}`)
         }
     }
     function getVncViewerBuilder() {
-        if (backendOptions.vncViewerModule === "TigerVNC") {
+        if (globalConfig["vnc-viewer-module"] === "TigerVNC") {
             return new TigerVNC.VncViewerBuilder()
         } else {
-            throw new Error(`Invalid vnc-viewer module: ${backendOptions.vncViewerModule}`)
+            throw new Error(`Invalid vnc-viewer module: ${globalConfig["vnc-viewer-module"]}`)
         }
     }
 
@@ -103,12 +101,12 @@ async function main() {
         .option("--local-port <port>", "The port number of the localhost",
                 parseIntWithDefaultValue, configs["local-port"] || -1)
     /* options for ssh-client */
-    const sshConfigs = configs[backendOptions.sshClientModule] || {}
+    const sshConfigs = configs[globalConfig["ssh-client-module"]] || {}
     command = getSshClientBuilder().commandLineArguments(command, sshConfigs)
     command.option("--ssh-client <key>=<value>", "The additional options for ssh-client",
                    collectAdditionalOptions, sshConfigs)
     /* options for vnc-viewer */
-    const vncViewerConfigs = configs[backendOptions.vncViewerModule] || {}
+    const vncViewerConfigs = configs[globalConfig["vnc-viewer-module"]] || {}
     command = getVncViewerBuilder().commandLineArguments(command, vncViewerConfigs)
     command.option("--vnc-viewer <key>=<value>", "The additional options for vnc-viewer",
                    collectAdditionalOptions, vncViewerConfigs)
