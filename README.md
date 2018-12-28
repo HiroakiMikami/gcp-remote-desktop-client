@@ -1,1 +1,1 @@
-# cloud-linux-desktop-client
+# gcp-remote-desktop-client

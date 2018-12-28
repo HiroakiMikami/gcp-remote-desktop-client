@@ -1,10 +1,10 @@
 {
   "private": true,
-  "name": "cloud-linux-desktop-client",
+  "name": "gcp-remote-desktop-client",
   "version": "0.0.1",
   "description": "",
   "bin": {
-    "cloud-linux-desktop-client": "build/src/main.js"
+    "gcp-remote-desktop-client": "build/src/main.js"
   },
   "scripts": {
     "compile": "$(npm bin)/tsc -p ./",
@@ -16,14 +16,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/HiroakiMikami/cloud-linux-desktop-client.git"
+    "url": "git+https://github.com/HiroakiMikami/gcp-remote-desktop-client.git"
   },
   "author": "Hiroaki Mikami",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/HiroakiMikami/cloud-linux-desktop-client/issues"
+    "url": "https://github.com/HiroakiMikami/gcp-remote-desktop-client/issues"
   },
-  "homepage": "https://github.com/HiroakiMikami/cloud-linux-desktop-client#readme",
+  "homepage": "https://github.com/HiroakiMikami/gcp-remote-desktop-client#readme",
   "devDependencies": {
     "@types/chai": "^4.1.3",
     "@types/commander": "^2.12.2",
