@@ -7,7 +7,4 @@ export interface ICloud<CreateMachineOptions, GetPublicIpAddressOptions, Termina
     terminateMachine(name: string, options: TerminateMachineOptions): Promise<null>
 }
 
-export interface ICloudBuilder {
-    commandLineArguments(command: Command, configs: Configurations): Command
-    create(command: Command): ICloud<void, void, void>
-}
+export type CloudBuilder = (command: Command, configs: Configurations) => (() => ICloud<void, void, void>)

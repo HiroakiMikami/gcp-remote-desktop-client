@@ -2,7 +2,8 @@ import { Command } from "commander"
 import { isString } from "util"
 import { Configurations } from "./configurations"
 import { Executable } from "./executable"
-import { IVncViewer, IVncViewerBuilder } from "./vnc_viewer"
+import { collectAdditionalOptions } from "./utils"
+import { IVncViewer } from "./vnc_viewer"
 
 type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<null>
 
@@ -30,13 +31,13 @@ export class VncViewer implements IVncViewer<any> {
     }
 }
 
-export class VncViewerBuilder implements IVncViewerBuilder {
-    public commandLineArguments(command: Command, configs: Configurations): Command {
-        return command
-            .option("--vncviewer-path <command>", "The path of `vncviewer` command",
-                    configs["vncviewer-path"] || "vncviewer")
-        }
-    public create(command: Command): IVncViewer<void> {
+export function buildVncViewer(command: Command, configs: Configurations): () => IVncViewer<void> {
+    command
+        .option("--vnc-viewer <key>=<value>", "The additional options for vnc-viewer",
+                collectAdditionalOptions, configs)
+        .option("--vncviewer-path <command>", "The path of `vncviewer` command",
+                configs["vncviewer-path"] || "vncviewer")
+    return () => {
         const viewer = new VncViewer(command.vncviewer_path)
         return {
             connect(port: number, _: void): Promise<null> {
