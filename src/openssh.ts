@@ -5,8 +5,8 @@ import * as path from "path"
 import { isString } from "util"
 import { Configurations, copy } from "./configurations"
 import { Executable } from "./executable"
-import { ISshClient, ISshClientBuilder, OnExit } from "./ssh_client"
-import { backupFile, parseIntWithDefaultValue, collectAdditionalOptions, retry } from "./utils"
+import { ISshClient, OnExit } from "./ssh_client"
+import { backupFile, collectAdditionalOptions, parseIntWithDefaultValue, retry } from "./utils"
 
 export interface IOptions {
     identityFile?: string
@@ -58,22 +58,20 @@ export class SshClient implements ISshClient<any> {
     }
 }
 
-export class SshClientBuilder implements ISshClientBuilder {
-    public commandLineArguments(command: Command, configs: Configurations): Command {
-        let options = copy(configs)
-        delete options["ssh-timeout-time"]
-        delete options["ssh-path"]
-        delete options["ssh-wait-after-success-time"]
-        return command
-            .option("--ssh-client <key>=<value>", "The additional options for ssh-client",
-                   collectAdditionalOptions, options)
-            .option("--ssh-path <command>", "The path of `ssh` command", configs["ssh-path"] || "ssh")
-            .option("--ssh-timeout-time <time[sec]>", "The timeout time",
-                    parseIntWithDefaultValue, configs["ssh-timeout-time"] || 0)
-            .option("--ssh-wait-after-success-time <time[sec]>", "The wait time after success",
-                    parseIntWithDefaultValue, configs["ssh-wait-after-success-time"] || 0)
-    }
-    public create(command: Command): ISshClient<void> {
+export function buildSshClient(command: Command, configs: Configurations): () => ISshClient<void> {
+    const options = copy(configs)
+    delete options["ssh-timeout-time"]
+    delete options["ssh-path"]
+    delete options["ssh-wait-after-success-time"]
+    command
+        .option("--ssh-client <key>=<value>", "The additional options for ssh-client",
+                collectAdditionalOptions, options)
+        .option("--ssh-path <command>", "The path of `ssh` command", configs["ssh-path"] || "ssh")
+        .option("--ssh-timeout-time <time[sec]>", "The timeout time",
+                parseIntWithDefaultValue, configs["ssh-timeout-time"] || 0)
+        .option("--ssh-wait-after-success-time <time[sec]>", "The wait time after success",
+                parseIntWithDefaultValue, configs["ssh-wait-after-success-time"] || 0)
+    return () => {
         const client = new SshClient(command.sshPath, command.sshTimeoutTime, command.sshWaitAfterSuccessTime)
         return {
             portForward(hostname: string, from: number, to: number,

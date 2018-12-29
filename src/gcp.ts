@@ -1,6 +1,6 @@
 import { Command } from "commander"
 import { isString } from "util"
-import { ICloud, ICloudBuilder } from "./cloud"
+import { ICloud } from "./cloud"
 import { Configurations } from "./configurations"
 import { Executable } from "./executable"
 
@@ -127,30 +127,28 @@ function parseTags(value: string, _: ReadonlyArray<string>) {
     return value.split(",")
 }
 
-export class CloudBuilder implements ICloudBuilder {
-    public commandLineArguments(command: Command, configs: Configurations): Command {
-        let preemptible = configs.preemptible
-        if (preemptible === undefined) {
-            preemptible = false
-        }
-        command
-            .option("--gcloud-path <command>", "The path of `gcloud` command", "gcloud")
-            .option("--machine-type <machine_type>", "The machine type", configs["machine-type"])
-            .option("--vcpu <n>", "The number of CPUs", configs.vcpu)
-            .option("--memory <n>", "The required memory [GB]", configs.memory)
-            .option("--accelerator [type=count,...]", "The accelerator", parseAccelerator, configs.accelerator || [])
-        if (preemptible) {
-            command
-                .option("--no-preemptible", `Not use preemptible VM (default=${preemptible})`, preemptible)
-        } else {
-            command
-                .option("--preemptible", `Use preemptible VM (default=${preemptible})`, preemptible)
-        }
-        return command
-            .option("--tags <tag1>[,<tag2>...]", "The network tags", parseTags, configs.tags)
-            .option("--zone <zone>", "The zone", configs.zone)
+export function buildCloud(command: Command, configs: Configurations): () => ICloud<void, void, void> {
+    let preemptible = configs.preemptible
+    if (preemptible === undefined) {
+        preemptible = false
     }
-    public create(command: Command): ICloud<void, void, void> {
+    command
+        .option("--gcloud-path <command>", "The path of `gcloud` command", "gcloud")
+        .option("--machine-type <machine_type>", "The machine type", configs["machine-type"])
+        .option("--vcpu <n>", "The number of CPUs", configs.vcpu)
+        .option("--memory <n>", "The required memory [GB]", configs.memory)
+        .option("--accelerator [type=count,...]", "The accelerator", parseAccelerator, configs.accelerator || [])
+    if (preemptible) {
+        command
+            .option("--no-preemptible", `Not use preemptible VM (default=${preemptible})`, preemptible)
+    } else {
+        command
+            .option("--preemptible", `Use preemptible VM (default=${preemptible})`, preemptible)
+    }
+    command
+        .option("--tags <tag1>[,<tag2>...]", "The network tags", parseTags, configs.tags)
+        .option("--zone <zone>", "The zone", configs.zone)
+    return () => {
         const cloud = new Cloud(command.gclouPath)
         return {
             createMachine(name: string, _: void): Promise<null> {

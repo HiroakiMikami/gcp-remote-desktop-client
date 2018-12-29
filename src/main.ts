@@ -23,9 +23,10 @@ async function main() {
 
     let globalConfig = await load(globalConfigPath)
     globalConfig = merge(
-        { "ssh-client-module": process.env.GCP_REMOTE_DESKTOP_SSH_CLIENT_MODULE || "OpenSSH",
+        { "log-level": "info",
+          "ssh-client-module": process.env.GCP_REMOTE_DESKTOP_SSH_CLIENT_MODULE || "OpenSSH",
           "vnc-viewer-module": process.env.GCP_REMOTE_DESKTOP_VNC_VIEWER_MODULE || "TigerVNC",
-          "log-level": "info" },
+        },
         globalConfig)
 
     const backendOptions = new Command()
@@ -49,18 +50,16 @@ async function main() {
     logger.debug(`ssh-client module: ${globalConfig["ssh-client-module"]}`)
     logger.debug(`vnc-viewer module: ${globalConfig["vnc-viewer-module"]}`)
 
-    const cloudBuilder = new GCP.CloudBuilder()
-
     function getSshClientBuilder() {
         if (globalConfig["ssh-client-module"] === "OpenSSH") {
-            return new OpenSSH.SshClientBuilder()
+            return OpenSSH.buildSshClient
         } else {
             throw new Error(`Invalid ssh-client module: ${globalConfig["ssh-client-module"]}`)
         }
     }
     function getVncViewerBuilder() {
         if (globalConfig["vnc-viewer-module"] === "TigerVNC") {
-            return new TigerVNC.VncViewerBuilder()
+            return TigerVNC.buildVncViewer
         } else {
             throw new Error(`Invalid vnc-viewer module: ${globalConfig["vnc-viewer-module"]}`)
         }
@@ -96,24 +95,24 @@ async function main() {
     const tmpConfigs = await load(configPath)
     const configs = merge(globalConfig, tmpConfigs)
 
-    let command = new Command()
+    const command = new Command()
     command
         .option("--local-port <port>", "The port number of the localhost",
                 parseIntWithDefaultValue, configs["local-port"] || -1)
-    /* options for ssh-client */
+    /* Prepare options for ssh-client */
     const sshConfigs = configs[globalConfig["ssh-client-module"]] || {}
-    command = getSshClientBuilder().commandLineArguments(command, sshConfigs)
-    /* options for vnc-viewer */
+    const getSshClient = getSshClientBuilder()(command, sshConfigs)
+    /* Prepare options for vnc-viewer */
     const vncViewerConfigs = configs[globalConfig["vnc-viewer-module"]] || {}
-    command = getVncViewerBuilder().commandLineArguments(command, vncViewerConfigs)
-    /* options for cloud */
-    command = cloudBuilder.commandLineArguments(command, configs.GCP || {})
+    const getVncViewer = getVncViewerBuilder()(command, vncViewerConfigs)
+    /* Prepare options for cloud */
+    const getCloud = GCP.buildCloud(command, configs.GCP || {})
 
     command.parse(args)
 
-    const sshClient = getSshClientBuilder().create(command)
-    const vncViewer = getVncViewerBuilder().create(command)
-    const cloud = cloudBuilder.create(command)
+    const sshClient = getSshClient()
+    const vncViewer = getVncViewer()
+    const cloud = getCloud()
 
     let onExit: OnExit | null = null
     try {
