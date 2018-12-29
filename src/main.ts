@@ -9,7 +9,7 @@ import * as GCP from "./gcp"
 import * as OpenSSH from "./openssh"
 import { OnExit } from "./ssh_client"
 import * as TigerVNC from "./tigervnc"
-import { collectAdditionalOptions, parseIntWithDefaultValue } from "./utils"
+import { parseIntWithDefaultValue } from "./utils"
 
 const logger = log4js.getLogger()
 
@@ -103,13 +103,9 @@ async function main() {
     /* options for ssh-client */
     const sshConfigs = configs[globalConfig["ssh-client-module"]] || {}
     command = getSshClientBuilder().commandLineArguments(command, sshConfigs)
-    command.option("--ssh-client <key>=<value>", "The additional options for ssh-client",
-                   collectAdditionalOptions, sshConfigs)
     /* options for vnc-viewer */
     const vncViewerConfigs = configs[globalConfig["vnc-viewer-module"]] || {}
     command = getVncViewerBuilder().commandLineArguments(command, vncViewerConfigs)
-    command.option("--vnc-viewer <key>=<value>", "The additional options for vnc-viewer",
-                   collectAdditionalOptions, vncViewerConfigs)
     /* options for cloud */
     command = cloudBuilder.commandLineArguments(command, configs.GCP || {})
 

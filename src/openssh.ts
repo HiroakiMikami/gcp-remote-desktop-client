@@ -3,10 +3,10 @@ import { Command } from "commander"
 import * as os from "os"
 import * as path from "path"
 import { isString } from "util"
-import { Configurations, copy, merge } from "./configurations"
+import { Configurations, copy } from "./configurations"
 import { Executable } from "./executable"
 import { ISshClient, ISshClientBuilder, OnExit } from "./ssh_client"
-import { backupFile, parseIntWithDefaultValue, retry } from "./utils"
+import { backupFile, parseIntWithDefaultValue, collectAdditionalOptions, retry } from "./utils"
 
 export interface IOptions {
     identityFile?: string
@@ -60,7 +60,13 @@ export class SshClient implements ISshClient<any> {
 
 export class SshClientBuilder implements ISshClientBuilder {
     public commandLineArguments(command: Command, configs: Configurations): Command {
+        let options = copy(configs)
+        delete options["ssh-timeout-time"]
+        delete options["ssh-path"]
+        delete options["ssh-wait-after-success-time"]
         return command
+            .option("--ssh-client <key>=<value>", "The additional options for ssh-client",
+                   collectAdditionalOptions, options)
             .option("--ssh-path <command>", "The path of `ssh` command", configs["ssh-path"] || "ssh")
             .option("--ssh-timeout-time <time[sec]>", "The timeout time",
                     parseIntWithDefaultValue, configs["ssh-timeout-time"] || 0)
@@ -72,12 +78,7 @@ export class SshClientBuilder implements ISshClientBuilder {
         return {
             portForward(hostname: string, from: number, to: number,
                         _: void): Promise<OnExit> {
-                let options = copy(command.sshClient)
-                delete options["ssh-timeout-time"]
-                delete options["ssh-path"]
-                delete options["ssh-wait-after-success-time"]
-                options = merge( { p: 22, l: os.userInfo().username }, options)
-                return client.portForward(hostname, from, to, options)
+                return client.portForward(hostname, from, to, command.sshClient)
             },
         }
     }
