@@ -48,9 +48,9 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             this.gcloudCommandWithStdout = gcloudCommand
         }
     }
-    public async createMachine(name: string, options: ICreateMachineOptions): Promise<null> {
-        const createArgs = ["beta", "compute", "instances", "create", name]
-        const startArgs = ["compute", "instances", "start", name]
+    public async createMachine(machineName: string, diskName: string, options: ICreateMachineOptions): Promise<null> {
+        const createArgs = ["beta", "compute", "instances", "create", machineName]
+        const startArgs = ["compute", "instances", "start", machineName]
         if (options.zone !== undefined) {
             createArgs.push(`--zone=${options.zone}`)
             startArgs.push(`--zone=${options.zone}`)
@@ -77,15 +77,15 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             createArgs.push("--preemptible")
         }
         createArgs.push(`--machine-type=${machineType}`)
-        createArgs.push(`--disk=name=${name},device-name=${name},mode=rw,boot=yes`)
+        createArgs.push(`--disk=name=${diskName},device-name=${diskName},mode=rw,boot=yes`)
 
         await this.gcloudCommand(createArgs)
         await this.gcloudCommand(startArgs)
         return null
     }
-    public async getPublicIpAddress(name: string, options: IOptions): Promise<string> {
+    public async getPublicIpAddress(machineName: string, options: IOptions): Promise<string> {
         const args = ["compute", "instances", "list",
-                    `--filter="name=${name}"`,
+                    `--filter="name=${machineName}"`,
                     "--format='value(networkInterfaces[0].accessConfigs[0].natIP)'"]
         if (options.zone !== undefined) {
             args.push(`--filter="zone:( ${options.zone} )"`)
@@ -93,15 +93,15 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
         const result = await this.gcloudCommandWithStdout(args)
         return result.split("\n")[0]
     }
-    public async terminateMachine(name: string, options: IOptions): Promise<null> {
+    public async terminateMachine(machineName: string, options: IOptions): Promise<null> {
         const stopArgs = ["compute", "instances", "stop"]
         const deleteArgs = ["--quiet", "compute", "instances", "delete", "--keep-disks", "all"]
         if (options.zone !== undefined) {
             stopArgs.push(`--zone=${options.zone}`)
             deleteArgs.push(`--zone=${options.zone}`)
         }
-        stopArgs.push(name)
-        deleteArgs.push(name)
+        stopArgs.push(machineName)
+        deleteArgs.push(machineName)
         await this.gcloudCommand(stopArgs)
         await this.gcloudCommand(deleteArgs)
         return null
@@ -151,7 +151,7 @@ export function buildCloud(command: Command, configs: Configurations): () => ICl
     return () => {
         const cloud = new Cloud(command.gclouPath)
         return {
-            createMachine(name: string, _: void): Promise<null> {
+            createMachine(machineName: string, diskName: string, _: void): Promise<null> {
                 /* Get machine type */
                 let machineType: string | ICustumMachineType | null = null
                 if (command.machineType !== undefined) {
@@ -167,7 +167,7 @@ export function buildCloud(command: Command, configs: Configurations): () => ICl
                 if (accelerators instanceof Error) {
                     return Promise.reject(accelerators)
                 }
-                return cloud.createMachine(name, {
+                return cloud.createMachine(machineName, diskName, {
                     accelerators,
                     machineType,
                     preemptible: command.preemptible,

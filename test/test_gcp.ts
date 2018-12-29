@@ -12,7 +12,7 @@ describe("GCP", () => {
                     history.push(args)
                     return Promise.resolve("result")
                 })
-                await gcp.createMachine("test", { machineType: "n1-highmem-4" })
+                await gcp.createMachine("test", "test", { machineType: "n1-highmem-4" })
                 history.length.should.equal(2)
                 history[0].should.deep.equal([
                     "beta", "compute", "instances", "create",
@@ -26,7 +26,7 @@ describe("GCP", () => {
                     history.push(args)
                     return Promise.resolve("result")
                 })
-                await gcp.createMachine("test", { machineType: { vCPU: 24, memory: 100 } })
+                await gcp.createMachine("test", "test", { machineType: { vCPU: 24, memory: 100 } })
                 history[0].should.deep.equal([
                     "beta", "compute", "instances", "create",
                     "test", "--machine-type=custum-24-102400",
@@ -38,7 +38,7 @@ describe("GCP", () => {
                     history.push(args)
                     return Promise.resolve("result")
                 })
-                await gcp.createMachine("test",
+                await gcp.createMachine("test", "test",
                                         {
                                             accelerators: [{ deviceType: "nvidia-tesla-k80", count: 1}],
                                             machineType: "n1-highmem-4",
@@ -56,7 +56,7 @@ describe("GCP", () => {
                     history.push(args)
                     return Promise.resolve("result")
                 })
-                await gcp.createMachine("test", { machineType: "n1-highmem-4", tags: ["foo", "bar"] })
+                await gcp.createMachine("test", "test", { machineType: "n1-highmem-4", tags: ["foo", "bar"] })
                 history[0].should.deep.equal([
                     "beta", "compute", "instances", "create",
                     "test", "--tags=foo,bar", "--machine-type=n1-highmem-4",
@@ -68,7 +68,7 @@ describe("GCP", () => {
                     history.push(args)
                     return Promise.resolve("result")
                 })
-                await gcp.createMachine("test", { machineType: "n1-highmem-4", zone: "zone" })
+                await gcp.createMachine("test", "test", { machineType: "n1-highmem-4", zone: "zone" })
                 history[0].should.deep.equal([
                     "beta", "compute", "instances", "create",
                     "test", "--zone=zone", "--machine-type=n1-highmem-4",
