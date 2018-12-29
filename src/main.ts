@@ -72,6 +72,9 @@ async function main() {
     logger.info(`config file: ${configPath}`)
     logger.info(`Load the global config file: ${configPath}`)
 
+    const machineName = `a${new Date().getTime().toString(16)}` // First character should be [a-z]
+    logger.debug(`machine name ${machineName}`)
+
     const tmpConfigs = await load(configPath)
     const configs = merge(globalConfig, tmpConfigs)
     const sshConfigs = configs[globalConfig["ssh-client-module"]] || {}
@@ -103,11 +106,11 @@ async function main() {
 
     try {
         /* Create VM */
-        logger.info(`Create VM (${name})`)
-        await cloud.createMachine(name, null)
+        logger.info(`Create VM (${machineName})`)
+        await cloud.createMachine(machineName, name, null)
         /* Get public IP address */
-        logger.info(`Get public IP address of ${name}`)
-        const ip = await cloud.getPublicIpAddress(name, null)
+        logger.info(`Get public IP address of ${machineName}`)
+        const ip = await cloud.getPublicIpAddress(machineName, null)
         logger.info(`IP address: ${ip}`)
         /* Run remote-desktop application */
         await remoteDesktop.connect(ip, null)
@@ -116,8 +119,8 @@ async function main() {
     }
 
     /* Terimnate VM */
-    logger.info(`Terminate VM (${name})`)
-    return cloud.terminateMachine(name, null)
+    logger.info(`Terminate VM (${machineName})`)
+    return cloud.terminateMachine(machineName, null)
 }
 
 main()
