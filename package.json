@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "description": "",
   "bin": {
-    "gcp-remote-desktop-client": "build/src/main.js"
+    "gcp-remote-desktop-client": "out/src/main.js"
   },
   "scripts": {
     "compile": "$(npm bin)/tsc -p ./",
