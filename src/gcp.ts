@@ -2,14 +2,9 @@ import * as Compute from "@google-cloud/compute"
 import { Command } from "commander"
 import * as log4js from "log4js"
 import { isString } from "util"
-import { ICloud } from "./cloud"
 import { Configurations } from "./configurations"
 
 const logger = log4js.getLogger()
-
-export interface IOptions {
-    zone: string
-}
 
 export interface ICustumMachineType {
     /** required the number of CPUs */
@@ -23,22 +18,23 @@ export interface IAccelerator {
     count: number
 }
 
-export interface ICreateMachineOptions extends IOptions {
-    machineType: string | ICustumMachineType,
+export interface ICreateMachineOptions {
     accelerators?: ReadonlyArray<IAccelerator>
     preemptible?: boolean
     tags?: ReadonlyArray<string>
 }
 
-export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> {
+export class Cloud {
     constructor(private compute: Compute = new Compute()) {}
-    public async createMachine(machineName: string, diskName: string, options: ICreateMachineOptions): Promise<null> {
-        let machineType = ""
-        if (isString(options.machineType)) {
-            machineType = options.machineType
+    public async createMachine(machineName: string, diskName: string, zone: string,
+                               machineType: string | ICustumMachineType,
+                               options: ICreateMachineOptions): Promise<null> {
+        let machineTypeStr = ""
+        if (isString(machineType)) {
+            machineTypeStr = machineType
         } else {
-            const tmp = options.machineType
-            machineType = `custum-${tmp.vCPU}-${tmp.memory * 1024}`
+            const tmp = machineType
+            machineTypeStr = `custum-${tmp.vCPU}-${tmp.memory * 1024}`
         }
         const accelerators = []
         for (const a of options.accelerators || []) {
@@ -49,8 +45,8 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             preemptible = false
         }
 
-        const zone = this.compute.zone(options.zone)
-        const disk = zone.disk(diskName)
+        const zoneObj = this.compute.zone(zone)
+        const disk = zoneObj.disk(diskName)
         const tmpDiskMetadata = await disk.getMetadata()
         const diskMetadata = tmpDiskMetadata[0]
         const configs = {
@@ -64,7 +60,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
                 type: "PERSISTENT",
             }],
             guestAccelerators: accelerators,
-            machineType,
+            machineType: machineTypeStr,
             networkInterfaces: [
                 {
                     accessConfigs: [{
@@ -87,7 +83,7 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
 
         logger.info(`Create VM(name="${machineName}")`)
         logger.debug(`Configuration: ${JSON.stringify(configs)}`)
-        const tmpVm = await zone.createVM(machineName, configs)
+        const tmpVm = await zoneObj.createVM(machineName, configs)
         const vm = tmpVm[0]
         await tmpVm[1].promise() // Wait for VM
 
@@ -97,14 +93,14 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
 
         return null
     }
-    public async getPublicIpAddress(machineName: string, options: IOptions): Promise<string> {
-        const vm = this.compute.zone(options.zone).vm(machineName)
+    public async getPublicIpAddress(machineName: string, zone: string): Promise<string> {
+        const vm = this.compute.zone(zone).vm(machineName)
         const tmpVmMetadata = await vm.getMetadata()
         const vmMetadata = tmpVmMetadata[0]
         return vmMetadata.networkInterfaces[0].accessConfigs[0].natIP
     }
-    public async terminateMachine(machineName: string, options: IOptions): Promise<null> {
-        const vm = this.compute.zone(options.zone).vm(machineName)
+    public async terminateMachine(machineName: string, zone: string): Promise<null> {
+        const vm = this.compute.zone(zone).vm(machineName)
 
         logger.info(`Stop VM(name="${machineName}")`)
         const op1 = await vm.stop()
@@ -137,7 +133,7 @@ function parseTags(value: string, _: ReadonlyArray<string>) {
     return value.split(",")
 }
 
-export function buildCloud(command: Command, configs: Configurations): () => ICloud<void, void, void> {
+export function buildCloud(command: Command, configs: Configurations) {
     let preemptible = configs.preemptible
     if (preemptible === undefined) {
         preemptible = false
@@ -161,7 +157,7 @@ export function buildCloud(command: Command, configs: Configurations): () => ICl
     return () => {
         const cloud = new Cloud(command.gclouPath)
         return {
-            createMachine(machineName: string, diskName: string, _: void): Promise<null> {
+            createMachine(machineName: string, diskName: string): Promise<null> {
                 /* Get machine type */
                 let machineType: string | ICustumMachineType | null = null
                 if (command.machineType !== undefined) {
@@ -177,19 +173,17 @@ export function buildCloud(command: Command, configs: Configurations): () => ICl
                 if (accelerators instanceof Error) {
                     return Promise.reject(accelerators)
                 }
-                return cloud.createMachine(machineName, diskName, {
+                return cloud.createMachine(machineName, diskName, command.zone, machineType, {
                     accelerators,
-                    machineType,
                     preemptible: command.preemptible,
                     tags: command.tags,
-                    zone: command.zone,
                 })
             },
-            getPublicIpAddress(name: string, _: void): Promise<string> {
-                return cloud.getPublicIpAddress(name, {zone: command.zone})
+            getPublicIpAddress(name: string): Promise<string> {
+                return cloud.getPublicIpAddress(name, command.zone)
             },
-            terminateMachine(name: string, _: void): Promise<null> {
-                return cloud.terminateMachine(name, {zone: command.zone})
+            terminateMachine(name: string): Promise<null> {
+                return cloud.terminateMachine(name, command.zone)
             },
         }
     }

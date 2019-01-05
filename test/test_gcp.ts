@@ -80,7 +80,7 @@ describe("GCP", () => {
                                              )],
                     ]))
                 const gcp = new Cloud(mockCompute)
-                await gcp.createMachine("test", "test", { zone: "zone", machineType: "n1-highmem-4" })
+                await gcp.createMachine("test", "test", "zone", "n1-highmem-4", {})
                 history.should.deep.equal([
                     ["Compute#zone", "zone"],
                     ["Zone#disk", "test"],
@@ -131,7 +131,7 @@ describe("GCP", () => {
                                              )],
                     ]))
                 const gcp = new Cloud(mockCompute)
-                await gcp.createMachine("test", "test", { zone: "zone", machineType: { vCPU: 24, memory: 100 } })
+                await gcp.createMachine("test", "test", "zone", { vCPU: 24, memory: 100 }, {})
                 history.should.deep.equal([
                     ["Compute#zone", "zone"],
                     ["Zone#disk", "test"],
@@ -182,12 +182,8 @@ describe("GCP", () => {
                                              )],
                     ]))
                 const gcp = new Cloud(mockCompute)
-                await gcp.createMachine("test", "test",
-                                        {
-                                            accelerators: [{ deviceType: "nvidia-tesla-k80", count: 1}],
-                                            machineType: "n1-highmem-4",
-                                            zone: "zone",
-                                        })
+                await gcp.createMachine("test", "test", "zone", "n1-highmem-4",
+                                        { accelerators: [{ deviceType: "nvidia-tesla-k80", count: 1}] })
                 history.should.deep.equal([
                     ["Compute#zone", "zone"],
                     ["Zone#disk", "test"],
@@ -238,8 +234,8 @@ describe("GCP", () => {
                                              )],
                     ]))
                 const gcp = new Cloud(mockCompute)
-                await gcp.createMachine("test", "test",
-                                        { zone: "zone", machineType: "n1-highmem-4", tags: ["foo", "bar"] })
+                await gcp.createMachine("test", "test", "zone", "n1-highmem-4",
+                                        { tags: ["foo", "bar"] })
                 history.should.deep.equal([
                     ["Compute#zone", "zone"],
                     ["Zone#disk", "test"],
@@ -297,7 +293,7 @@ describe("GCP", () => {
                                              )],
                     ]))
                 const gcp = new Cloud(mockCompute)
-                const result = await gcp.getPublicIpAddress("test", {zone: "zone"})
+                const result = await gcp.getPublicIpAddress("test", "zone")
                 result.should.equal("result")
                 history.should.deep.equal([
                     ["Compute#zone", "zone"],
@@ -316,7 +312,7 @@ describe("GCP", () => {
                                               new Map(),
                                               new Map([["test", {}]]))]]))
                 const gcp = new Cloud(mockCompute)
-                await gcp.terminateMachine("test", {zone: "zone"})
+                await gcp.terminateMachine("test", "zone")
                 history.should.deep.equal([
                     ["Compute#zone", "zone"],
                     ["Zone#vm", "test"],
