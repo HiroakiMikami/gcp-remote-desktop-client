@@ -25,23 +25,32 @@ async function main() {
     logger.info(`global config file: ${globalConfigPath}`)
     logger.info(`Load the global config file: ${globalConfigPath}`)
     let globalConfig = await load(globalConfigPath)
+    const defaultCredentials = path.join(os.homedir(), ".gcp-remote-desktop-client.json")
     globalConfig = merge(
-        { "log-level": "info",
-          "ssh-client-module": process.env.GCP_REMOTE_DESKTOP_SSH_CLIENT_MODULE || "OpenSSH",
-          "vnc-viewer-module": process.env.GCP_REMOTE_DESKTOP_VNC_VIEWER_MODULE || "TigerVNC",
+        {
+            "gcp-application-credentials": process.env.GOOGLE_APPLICATION_CREDENTIALS || defaultCredentials,
+            "log-level": "info",
+            "ssh-client-module": process.env.GCP_REMOTE_DESKTOP_SSH_CLIENT_MODULE || "OpenSSH",
+            "vnc-viewer-module": process.env.GCP_REMOTE_DESKTOP_VNC_VIEWER_MODULE || "TigerVNC",
         },
         globalConfig)
 
+    // dummyOptions
     const backendCommand = new Command()
         .version("0.0.1")
         .option("--log-level <level>",
                 "One of followings: [trace, debug, info, warn, error, fatal]",
                 globalConfig["log-level"])
         .option("--disk-name <name>", "The disk name of the VM")
-    // dummyOptions
+        .option("--gcp-application-credentials <file>", "The application credential file",
+                globalConfig["gcp-application-credentials"])
     VNCwithSSH.buildRemoteDesktop(backendCommand, {})
     backendCommand.parse(process.argv)
+
     logger.level = backendCommand.logLevel
+
+    logger.debug(`credentieals file for GCP: ${backendCommand.gcpApplicationCredentials}`)
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = backendCommand.gcpApplicationCredentials
 
     logger.debug(`ssh-client module: ${globalConfig["ssh-client-module"]}`)
     logger.debug(`vnc-viewer module: ${globalConfig["vnc-viewer-module"]}`)

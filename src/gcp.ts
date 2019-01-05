@@ -1,11 +1,14 @@
+import * as Compute from "@google-cloud/compute"
 import { Command } from "commander"
+import * as log4js from "log4js"
 import { isString } from "util"
 import { ICloud } from "./cloud"
 import { Configurations } from "./configurations"
-import { Executable } from "./executable"
+
+const logger = log4js.getLogger()
 
 export interface IOptions {
-    zone?: string
+    zone: string
 }
 
 export interface ICustumMachineType {
@@ -27,34 +30,9 @@ export interface ICreateMachineOptions extends IOptions {
     tags?: ReadonlyArray<string>
 }
 
-type GcloudCommand = (options: ReadonlyArray<string>) => Promise<string>
-
 export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> {
-    private gcloudCommand: (options: ReadonlyArray<string>) => Promise<null>
-    private gcloudCommandWithStdout: (options: ReadonlyArray<string>) => Promise<string>
-    constructor(gcloudCommand: string | GcloudCommand = "gcloud") {
-        if (isString(gcloudCommand)) {
-            const gcloud = new Executable(gcloudCommand)
-            this.gcloudCommand = (args: string[]) => gcloud.execute(args).then(() => null)
-            this.gcloudCommandWithStdout = async (args: string[]) => {
-                const result = await gcloud.execute(args, true)
-                return result.stdout
-            }
-        } else {
-            this.gcloudCommand = async (args) => {
-                await gcloudCommand(args)
-                return null
-            }
-            this.gcloudCommandWithStdout = gcloudCommand
-        }
-    }
+    constructor(private compute: Compute = new Compute()) {}
     public async createMachine(machineName: string, diskName: string, options: ICreateMachineOptions): Promise<null> {
-        const createArgs = ["beta", "compute", "instances", "create", machineName]
-        const startArgs = ["compute", "instances", "start", machineName]
-        if (options.zone !== undefined) {
-            createArgs.push(`--zone=${options.zone}`)
-            startArgs.push(`--zone=${options.zone}`)
-        }
         let machineType = ""
         if (isString(options.machineType)) {
             machineType = options.machineType
@@ -62,48 +40,80 @@ export class Cloud implements ICloud<ICreateMachineOptions, IOptions, IOptions> 
             const tmp = options.machineType
             machineType = `custum-${tmp.vCPU}-${tmp.memory * 1024}`
         }
-        if (options.accelerators !== undefined && options.accelerators.length !== 0) {
-            for (const accelerator of options.accelerators) {
-                createArgs.push("--accelerator")
-                createArgs.push(`type=${accelerator.deviceType},count=${accelerator.count}`)
-            }
+        const accelerators = []
+        for (const a of options.accelerators || []) {
+            accelerators.push({ acceleratorType: a.deviceType, acceleratorCount: a.count })
+        }
+        let preemptible = options.preemptible
+        if (preemptible === undefined) {
+            preemptible = false
         }
 
-        if (options.tags !== undefined && options.tags.length !== 0) {
-            createArgs.push(`--tags=${options.tags.join(",")}`)
+        const zone = this.compute.zone(options.zone)
+        const disk = zone.disk(diskName)
+        const tmpDiskMetadata = await disk.getMetadata()
+        const diskMetadata = tmpDiskMetadata[0]
+        const configs = {
+            disks: [{
+                autoDelete: false,
+                boot: true,
+                deviceName: diskName,
+                kind: "compute#attachedDisk",
+                mode: "READ_WRITE",
+                source: diskMetadata.selfLink,
+                type: "PERSISTENT",
+            }],
+            guestAccelerators: accelerators,
+            machineType,
+            networkInterfaces: [
+                {
+                    accessConfigs: [{
+                        kind: "compute#accessConfig",
+                        name: "External NAT",
+                        networkTier: "PREMIUM",
+                        type: "ONE_TO_ONE_NAT",
+                    }],
+                    aliasIpRanges: [],
+                    kind: "compute#networkInterface",
+                },
+            ],
+            scheduling: {
+                automaticRestart: false,
+                onHostMaintenance: "TERMINATE",
+                preemptible,
+            },
+            tags: options.tags || [],
         }
 
-        if (options.preemptible) {
-            createArgs.push("--preemptible")
-        }
-        createArgs.push(`--machine-type=${machineType}`)
-        createArgs.push(`--disk=name=${diskName},device-name=${diskName},mode=rw,boot=yes`)
+        logger.info(`Create VM(name="${machineName}")`)
+        logger.debug(`Configuration: ${JSON.stringify(configs)}`)
+        const tmpVm = await zone.createVM(machineName, configs)
+        const vm = tmpVm[0]
+        await tmpVm[1].promise() // Wait for VM
 
-        await this.gcloudCommand(createArgs)
-        await this.gcloudCommand(startArgs)
+        logger.info(`Start VM(name="${machineName}")`)
+        const op = await vm.start()
+        await op[0].promise()
+
         return null
     }
     public async getPublicIpAddress(machineName: string, options: IOptions): Promise<string> {
-        const args = ["compute", "instances", "list",
-                    `--filter="name=${machineName}"`,
-                    "--format='value(networkInterfaces[0].accessConfigs[0].natIP)'"]
-        if (options.zone !== undefined) {
-            args.push(`--filter="zone:( ${options.zone} )"`)
-        }
-        const result = await this.gcloudCommandWithStdout(args)
-        return result.split("\n")[0]
+        const vm = this.compute.zone(options.zone).vm(machineName)
+        const tmpVmMetadata = await vm.getMetadata()
+        const vmMetadata = tmpVmMetadata[0]
+        return vmMetadata.networkInterfaces[0].accessConfigs[0].natIP
     }
     public async terminateMachine(machineName: string, options: IOptions): Promise<null> {
-        const stopArgs = ["compute", "instances", "stop"]
-        const deleteArgs = ["--quiet", "compute", "instances", "delete", "--keep-disks", "all"]
-        if (options.zone !== undefined) {
-            stopArgs.push(`--zone=${options.zone}`)
-            deleteArgs.push(`--zone=${options.zone}`)
-        }
-        stopArgs.push(machineName)
-        deleteArgs.push(machineName)
-        await this.gcloudCommand(stopArgs)
-        await this.gcloudCommand(deleteArgs)
+        const vm = this.compute.zone(options.zone).vm(machineName)
+
+        logger.info(`Stop VM(name="${machineName}")`)
+        const op1 = await vm.stop()
+        await op1[0].promise()
+
+        logger.info(`Delete VM(name="${machineName}")`)
+        const op2 = await vm.delete()
+        await op2[0].promise()
+
         return null
     }
 }

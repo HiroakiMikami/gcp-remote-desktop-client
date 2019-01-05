@@ -1,153 +1,383 @@
 import * as chai from "chai"
-const should = chai.should()
+chai.should()
 
 import { Cloud } from "../src/gcp"
+
+class MockOperation {
+    constructor(private history: any[][]) {}
+    public promise() {
+        this.history.push(["Operation#promise"])
+        return Promise.resolve()
+    }
+}
 
 describe("GCP", () => {
     describe("Cloud", () => {
         describe("#createInstance", () => {
             it("create a VM and start it", async () => {
-                const history: Array<{}> = []
-                const gcp = new Cloud((args) => {
-                    history.push(args)
-                    return Promise.resolve("result")
-                })
-                await gcp.createMachine("test", "test", { machineType: "n1-highmem-4" })
-                history.length.should.equal(2)
-                history[0].should.deep.equal([
-                    "beta", "compute", "instances", "create",
-                    "test", "--machine-type=n1-highmem-4",
-                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
-                history[1].should.deep.equal(["compute", "instances", "start", "test"])
+                const history: any[][] = []
+                const mockCompute = {
+                    zone(zone: string) {
+                        history.push(["Compute#zone", zone])
+                        return {
+                            disk(name: string) {
+                                history.push(["Zone#disk", name])
+                                return {
+                                    getMetadata() {
+                                        history.push(["Disk#getMetadata"])
+                                        return Promise.resolve([{ selfLink: "link" }])
+                                    },
+                                }
+                            },
+                            createVM(name: string, configs: any) {
+                                history.push(["Zone#createVM", name, configs])
+                                return Promise.resolve([
+                                    {
+                                        start() {
+                                            history.push(["VM#start"])
+                                            return [new MockOperation(history)]
+                                        },
+                                    },
+                                    new MockOperation(history),
+                                ])
+                            },
+                        }
+                    },
+                }
+                const gcp = new Cloud(mockCompute)
+                await gcp.createMachine("test", "test", { zone: "zone", machineType: "n1-highmem-4" })
+                history.should.deep.equal([
+                    ["Compute#zone", "zone"],
+                    ["Zone#disk", "test"],
+                    ["Disk#getMetadata"],
+                    ["Zone#createVM", "test", {
+                        disks: [{
+                            autoDelete: false,
+                            boot: true,
+                            deviceName: "test",
+                            kind: "compute#attachedDisk",
+                            mode: "READ_WRITE",
+                            source: "link",
+                            type: "PERSISTENT",
+                        }],
+                        guestAccelerators: [],
+                        machineType: "n1-highmem-4",
+            networkInterfaces: [
+                {
+                    accessConfigs: [{
+                        kind: "compute#accessConfig",
+                        name: "External NAT",
+                        networkTier: "PREMIUM",
+                        type: "ONE_TO_ONE_NAT",
+                    }],
+                    aliasIpRanges: [],
+                    kind: "compute#networkInterface",
+                },
+            ],
+                        scheduling: {
+                            automaticRestart: false,
+                            onHostMaintenance: "TERMINATE",
+                            preemptible: false,
+                        },
+                        tags: [],
+                    }],
+                    ["Operation#promise"],
+                    ["VM#start"],
+                    ["Operation#promise"],
+                ])
             })
             it("specify a custum machine-type", async () => {
-                const history: Array<{}> = []
-                const gcp = new Cloud((args) => {
-                    history.push(args)
-                    return Promise.resolve("result")
-                })
-                await gcp.createMachine("test", "test", { machineType: { vCPU: 24, memory: 100 } })
-                history[0].should.deep.equal([
-                    "beta", "compute", "instances", "create",
-                    "test", "--machine-type=custum-24-102400",
-                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
+                const history: any[][] = []
+                const mockCompute = {
+                    zone(zone: string) {
+                        history.push(["Compute#zone", zone])
+                        return {
+                            disk(name: string) {
+                                history.push(["Zone#disk", name])
+                                return {
+                                    getMetadata() {
+                                        history.push(["Disk#getMetadata"])
+                                        return Promise.resolve([{ selfLink: "link" }])
+                                    },
+                                }
+                            },
+                            createVM(name: string, configs: any) {
+                                history.push(["Zone#createVM", name, configs])
+                                return Promise.resolve([
+                                    {
+                                        start() {
+                                            history.push(["VM#start"])
+                                            return [new MockOperation(history)]
+                                        },
+                                    },
+                                    new MockOperation(history),
+                                ])
+                            },
+                        }
+                    },
+                }
+                const gcp = new Cloud(mockCompute)
+                await gcp.createMachine("test", "test", { zone: "zone", machineType: { vCPU: 24, memory: 100 } })
+                history.should.deep.equal([
+                    ["Compute#zone", "zone"],
+                    ["Zone#disk", "test"],
+                    ["Disk#getMetadata"],
+                    ["Zone#createVM", "test", {
+                        disks: [{
+                            autoDelete: false,
+                            boot: true,
+                            deviceName: "test",
+                            kind: "compute#attachedDisk",
+                            mode: "READ_WRITE",
+                            source: "link",
+                            type: "PERSISTENT",
+                        }],
+                        guestAccelerators: [],
+                        machineType: "custum-24-102400",
+            networkInterfaces: [
+                {
+                    accessConfigs: [{
+                        kind: "compute#accessConfig",
+                        name: "External NAT",
+                        networkTier: "PREMIUM",
+                        type: "ONE_TO_ONE_NAT",
+                    }],
+                    aliasIpRanges: [],
+                    kind: "compute#networkInterface",
+                },
+            ],
+                        scheduling: {
+                            automaticRestart: false,
+                            onHostMaintenance: "TERMINATE",
+                            preemptible: false,
+                        },
+                        tags: [],
+                    }],
+                    ["Operation#promise"],
+                    ["VM#start"],
+                    ["Operation#promise"],
+                ])
             })
             it("add accelerator", async () => {
-                const history: Array<{}> = []
-                const gcp = new Cloud((args) => {
-                    history.push(args)
-                    return Promise.resolve("result")
-                })
+                const history: any[][] = []
+                const mockCompute = {
+                    zone(zone: string) {
+                        history.push(["Compute#zone", zone])
+                        return {
+                            disk(name: string) {
+                                history.push(["Zone#disk", name])
+                                return {
+                                    getMetadata() {
+                                        history.push(["Disk#getMetadata"])
+                                        return Promise.resolve([{ selfLink: "link" }])
+                                    },
+                                }
+                            },
+                            createVM(name: string, configs: any) {
+                                history.push(["Zone#createVM", name, configs])
+                                return Promise.resolve([
+                                    {
+                                        start() {
+                                            history.push(["VM#start"])
+                                            return [new MockOperation(history)]
+                                        },
+                                    },
+                                    new MockOperation(history),
+                                ])
+                            },
+                        }
+                    },
+                }
+                const gcp = new Cloud(mockCompute)
                 await gcp.createMachine("test", "test",
                                         {
                                             accelerators: [{ deviceType: "nvidia-tesla-k80", count: 1}],
                                             machineType: "n1-highmem-4",
+                                            zone: "zone",
                                         })
-                history[0].should.deep.equal([
-                    "beta", "compute", "instances", "create",
-                    "test",
-                    "--accelerator", "type=nvidia-tesla-k80,count=1",
-                    "--machine-type=n1-highmem-4",
-                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
+                history.should.deep.equal([
+                    ["Compute#zone", "zone"],
+                    ["Zone#disk", "test"],
+                    ["Disk#getMetadata"],
+                    ["Zone#createVM", "test", {
+                        disks: [{
+                            autoDelete: false,
+                            boot: true,
+                            deviceName: "test",
+                            kind: "compute#attachedDisk",
+                            mode: "READ_WRITE",
+                            source: "link",
+                            type: "PERSISTENT",
+                        }],
+                        guestAccelerators: [{ acceleratorType: "nvidia-tesla-k80", acceleratorCount: 1 }],
+                        machineType: "n1-highmem-4",
+            networkInterfaces: [
+                {
+                    accessConfigs: [{
+                        kind: "compute#accessConfig",
+                        name: "External NAT",
+                        networkTier: "PREMIUM",
+                        type: "ONE_TO_ONE_NAT",
+                    }],
+                    aliasIpRanges: [],
+                    kind: "compute#networkInterface",
+                },
+            ],
+                        scheduling: {
+                            automaticRestart: false,
+                            onHostMaintenance: "TERMINATE",
+                            preemptible: false,
+                        },
+                        tags: [],
+                    }],
+                    ["Operation#promise"],
+                    ["VM#start"],
+                    ["Operation#promise"],
+                ])
             })
             it("specify the tags", async () => {
-                const history: Array<{}> = []
-                const gcp = new Cloud((args) => {
-                    history.push(args)
-                    return Promise.resolve("result")
-                })
-                await gcp.createMachine("test", "test", { machineType: "n1-highmem-4", tags: ["foo", "bar"] })
-                history[0].should.deep.equal([
-                    "beta", "compute", "instances", "create",
-                    "test", "--tags=foo,bar", "--machine-type=n1-highmem-4",
-                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
-            })
-            it("specify the zone", async () => {
-                const history: Array<{}> = []
-                const gcp = new Cloud((args) => {
-                    history.push(args)
-                    return Promise.resolve("result")
-                })
-                await gcp.createMachine("test", "test", { machineType: "n1-highmem-4", zone: "zone" })
-                history[0].should.deep.equal([
-                    "beta", "compute", "instances", "create",
-                    "test", "--zone=zone", "--machine-type=n1-highmem-4",
-                    "--disk=name=test,device-name=test,mode=rw,boot=yes"])
-                history[1].should.deep.equal([
-                    "compute", "instances", "start",
-                    "test", "--zone=zone"])
+                const history: any[][] = []
+                const mockCompute = {
+                    zone(zone: string) {
+                        history.push(["Compute#zone", zone])
+                        return {
+                            disk(name: string) {
+                                history.push(["Zone#disk", name])
+                                return {
+                                    getMetadata() {
+                                        history.push(["Disk#getMetadata"])
+                                        return Promise.resolve([{ selfLink: "link" }])
+                                    },
+                                }
+                            },
+                            createVM(name: string, configs: any) {
+                                history.push(["Zone#createVM", name, configs])
+                                return Promise.resolve([
+                                    {
+                                        start() {
+                                            history.push(["VM#start"])
+                                            return [new MockOperation(history)]
+                                        },
+                                    },
+                                    new MockOperation(history),
+                                ])
+                            },
+                        }
+                    },
+                }
+                const gcp = new Cloud(mockCompute)
+                await gcp.createMachine("test", "test",
+                                        { zone: "zone", machineType: "n1-highmem-4", tags: ["foo", "bar"] })
+                history.should.deep.equal([
+                    ["Compute#zone", "zone"],
+                    ["Zone#disk", "test"],
+                    ["Disk#getMetadata"],
+                    ["Zone#createVM", "test", {
+                        disks: [{
+                            autoDelete: false,
+                            boot: true,
+                            deviceName: "test",
+                            kind: "compute#attachedDisk",
+                            mode: "READ_WRITE",
+                            source: "link",
+                            type: "PERSISTENT",
+                        }],
+                        guestAccelerators: [],
+                        machineType: "n1-highmem-4",
+            networkInterfaces: [
+                {
+                    accessConfigs: [{
+                        kind: "compute#accessConfig",
+                        name: "External NAT",
+                        networkTier: "PREMIUM",
+                        type: "ONE_TO_ONE_NAT",
+                    }],
+                    aliasIpRanges: [],
+                    kind: "compute#networkInterface",
+                },
+            ],
+                        scheduling: {
+                            automaticRestart: false,
+                            onHostMaintenance: "TERMINATE",
+                            preemptible: false,
+                        },
+                        tags: ["foo", "bar"],
+                    }],
+                    ["Operation#promise"],
+                    ["VM#start"],
+                    ["Operation#promise"],
+                ])
             })
         })
 
         describe("#getPublicIpAddress", () => {
             it("query the public IP address of the VM", async () => {
-                const gcp = new Cloud((args) => {
-                    args.should.deep.equal(["compute", "instances", "list",
-                        "--filter=\"name=test\"",
-                        "--format='value(networkInterfaces[0].accessConfigs[0].natIP)'"])
-                    return Promise.resolve("result")
-                })
-                const result = await gcp.getPublicIpAddress("test", {})
+                const history: any[][] = []
+                const mockCompute = {
+                    zone(zone: string) {
+                        history.push(["Compute#zone", zone])
+                        return {
+                            vm(name: string) {
+                                history.push(["Zone#vm", name])
+                                return {
+                                    getMetadata() {
+                                        history.push(["VM#getMetadata"])
+                                        return Promise.resolve([{
+                                            networkInterfaces: [{
+                                                accessConfigs: [{ natIP: "result" }],
+                                            }],
+                                        }])
+                                    },
+                                }
+                            },
+                        }
+                    },
+                }
+                const gcp = new Cloud(mockCompute)
+                const result = await gcp.getPublicIpAddress("test", {zone: "zone"})
                 result.should.equal("result")
-            })
-            it("specify the zone", async () => {
-                const gcp = new Cloud((args) => {
-                    args.should.deep.equal(["compute", "instances", "list",
-                        "--filter=\"name=test\"",
-                        "--format='value(networkInterfaces[0].accessConfigs[0].natIP)'",
-                        "--filter=\"zone:( zone )\""])
-                    return Promise.resolve("result")
-                })
-                await gcp.getPublicIpAddress("test", { zone: "zone" })
+                history.should.deep.equal([
+                    ["Compute#zone", "zone"],
+                    ["Zone#vm", "test"],
+                    ["VM#getMetadata"],
+                ])
             })
         })
 
         describe("#terminateInstance", () => {
             it("stop a VM and delete it", async () => {
-                const history: Array<{}> = []
-                const gcp = new Cloud((args) => {
-                    history.push(args)
-                    return Promise.resolve("result")
-                })
-                await gcp.terminateMachine("test", {})
-                history.length.should.equal(2)
-                history[0].should.deep.equal([
-                    "compute", "instances", "stop",
-                    "test"])
-                history[1].should.deep.equal(["--quiet", "compute", "instances", "delete",
-                    "--keep-disks", "all", "test"])
+                const history: any[][] = []
+                const mockCompute = {
+                    zone(zone: string) {
+                        history.push(["Compute#zone", zone])
+                        return {
+                            vm(name: string) {
+                                history.push(["Zone#vm", name])
+                                return {
+                                    stop() {
+                                        history.push(["VM#stop"])
+                                        return Promise.resolve([new MockOperation(history)])
+                                    },
+                                    delete() {
+                                        history.push(["VM#delete"])
+                                        return Promise.resolve([new MockOperation(history)])
+                                    },
+                                }
+                            },
+                        }
+                    },
+                }
+                const gcp = new Cloud(mockCompute)
+                await gcp.terminateMachine("test", {zone: "zone"})
+                history.should.deep.equal([
+                    ["Compute#zone", "zone"],
+                    ["Zone#vm", "test"],
+                    ["VM#stop"],
+                    ["Operation#promise"],
+                    ["VM#delete"],
+                    ["Operation#promise"],
+                ])
             })
-            it("specify the zone", async () => {
-                const history: Array<{}> = []
-                const gcp = new Cloud((args) => {
-                    history.push(args)
-                    return Promise.resolve("result")
-                })
-                await gcp.terminateMachine("test", { zone: "zone" })
-                history.length.should.equal(2)
-                history[0].should.deep.equal([
-                    "compute", "instances", "stop",
-                    "--zone=zone",
-                    "test"])
-                history[1].should.deep.equal(["--quiet", "compute", "instances", "delete",
-                    "--keep-disks", "all", "--zone=zone", "test"])
-            })
-        })
-
-        it("return null if the command exists", async () => {
-            const gcp = new Cloud(":")
-            const error = await gcp.terminateMachine("name", {})
-            should.not.exist(error)
-        })
-        it("reject with an error if the command is not found", async () => {
-            const gcp = new Cloud("./not-found")
-
-            try {
-                await gcp.terminateMachine("name", {})
-            } catch (err) {
-                return null
-            }
-            should.exist(null) // Failure
         })
     })
 })
