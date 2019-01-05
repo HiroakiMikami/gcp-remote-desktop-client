@@ -6,6 +6,10 @@ import { Configurations } from "./configurations"
 
 const logger = log4js.getLogger()
 
+function createDiskType(apiUrl: string, project: string, zone: string, diskType: string) {
+    return `${apiUrl}/projects/${project}/zones/${zone}/diskTypes/${diskType}`
+}
+
 export interface ICustumMachineType {
     /** required the number of CPUs */
     vCPU: number
@@ -18,14 +22,73 @@ export interface IAccelerator {
     count: number
 }
 
+export interface ILabelOptions {
+    diskNameLabelName: string,
+    projectLabelName: string,
+    diskTypeLabelName: string
+}
+
 export interface ICreateMachineOptions {
     accelerators?: ReadonlyArray<IAccelerator>
     preemptible?: boolean
     tags?: ReadonlyArray<string>
 }
 
+function compareSnapshotWithMetadata(a: [any, any], b: [any, any]) {
+    const aTimestamp = Date.parse(a[1].creationTimestamp)
+    const bTimestamp = Date.parse(b[1].creationTimestamp)
+    if (aTimestamp < bTimestamp) {
+    // a is older than b
+        return -1
+    } else if (aTimestamp > bTimestamp) {
+    // a is newer than b
+        return 1
+    } else {
+        return 0
+    }
+}
+
 export class Cloud {
-    constructor(private compute: Compute = new Compute()) {}
+    constructor(private compute: Compute = new Compute(), private apiUrl= "https://www.googleapis.com/compute/v1") {}
+    public async prepareDisk(diskName: string, zone: string, options: ILabelOptions): Promise<null> {
+        const disk = this.compute.zone(zone).disk(diskName)
+
+        const tmpExists = await disk.exists()
+        const exists = tmpExists[0]
+        if (!exists) {
+            logger.info(`Restore a disk from the snapshot because the disk does not exist`)
+            const tmpSnaphots = await this.compute.getSnapshots(
+                { filter: `labels.${options.diskNameLabelName}="${zone}_${diskName}"` })
+            const snapshots: any[] = tmpSnaphots[0]
+
+            let snapshotsWithMetadata: Array<[any, any]> = await Promise.all(
+                snapshots.map(async (s) => {
+                    const data = await s.getMetadata()
+                    return [s, data[0]] as [any, any]
+                }),
+            )
+            snapshotsWithMetadata = snapshotsWithMetadata.sort(compareSnapshotWithMetadata)
+
+            if (snapshotsWithMetadata.length === 0) {
+                throw new Error(`There is no snapshots correspoinding to ${diskName} in ${zone}`)
+            }
+            const [snapshot, metadata] = snapshotsWithMetadata[snapshotsWithMetadata.length - 1]
+            logger.debug(`The newest snapshot: ${snapshot.name}`)
+
+            const type = metadata.labels[options.diskTypeLabelName]
+            const project = metadata.labels[options.projectLabelName]
+            const configs = {
+                sizeGb: metadata.diskSizeGb,
+                sourceSnapshot: metadata.selfLink,
+                type: createDiskType(this.apiUrl, project, zone, type),
+            }
+            logger.debug(`Create disk from the snapshot: ${JSON.stringify(configs)}`)
+            const op = await disk.create(configs)
+            await op[1].promise()
+        }
+
+        return null
+    }
     public async createMachine(machineName: string, diskName: string, zone: string,
                                machineType: string | ICustumMachineType,
                                options: ICreateMachineOptions): Promise<null> {
@@ -139,7 +202,6 @@ export function buildCloud(command: Command, configs: Configurations) {
         preemptible = false
     }
     command
-        .option("--gcloud-path <command>", "The path of `gcloud` command", "gcloud")
         .option("--machine-type <machine_type>", "The machine type", configs["machine-type"])
         .option("--vcpu <n>", "The number of CPUs", configs.vcpu)
         .option("--memory <n>", "The required memory [GB]", configs.memory)
@@ -154,10 +216,12 @@ export function buildCloud(command: Command, configs: Configurations) {
     command
         .option("--tags <tag1>[,<tag2>...]", "The network tags", parseTags, configs.tags)
         .option("--zone <zone>", "The zone", configs.zone)
+        .option("--snapshot-label-prefix <prefix>", "The prefix of labels",
+                configs["snapshot-label-prefix"] || "gcp-remote-desktop-client")
     return () => {
-        const cloud = new Cloud(command.gclouPath)
+        const cloud = new Cloud()
         return {
-            createMachine(machineName: string, diskName: string): Promise<null> {
+            async createMachine(machineName: string, diskName: string): Promise<null> {
                 /* Get machine type */
                 let machineType: string | ICustumMachineType | null = null
                 if (command.machineType !== undefined) {
@@ -173,11 +237,19 @@ export function buildCloud(command: Command, configs: Configurations) {
                 if (accelerators instanceof Error) {
                     return Promise.reject(accelerators)
                 }
-                return cloud.createMachine(machineName, diskName, command.zone, machineType, {
+
+                await cloud.prepareDisk(diskName, command.zone, {
+                    diskNameLabelName: `${command.snapshotLabelPrefix}__name`,
+                    diskTypeLabelName: `${command.snapshotLabelPrefix}__disk-type`,
+                    projectLabelName: `${command.snapshotLabelPrefix}__project`,
+                })
+                await cloud.createMachine(machineName, diskName, command.zone, machineType, {
                     accelerators,
                     preemptible: command.preemptible,
                     tags: command.tags,
                 })
+
+                return null
             },
             getPublicIpAddress(name: string): Promise<string> {
                 return cloud.getPublicIpAddress(name, command.zone)

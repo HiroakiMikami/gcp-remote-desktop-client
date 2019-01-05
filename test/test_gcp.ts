@@ -17,6 +17,25 @@ class MockDisk {
         this.history.push(["Disk#getMetadata"])
         return Promise.resolve([this.metadata])
     }
+    public exists() {
+        this.history.push(["Disk#exists"])
+        if (this.metadata) {
+            return Promise.resolve([true])
+        } else {
+            return Promise.resolve([false])
+        }
+    }
+    public create(configs) {
+        this.history.push(["Disk#create", configs])
+        return Promise.resolve([null, new MockOperation(this.history)])
+    }
+}
+class MockSnapshot {
+    constructor(private history: any[][], private metadata: any) {}
+    public getMetadata() {
+        this.history.push(["Snapshot#getMetadata"])
+        return Promise.resolve([this.metadata])
+    }
 }
 class MockVM {
     constructor(private history: any[][], private metadata: any) {}
@@ -60,16 +79,84 @@ class MockZone {
 
 class MockCompute {
     constructor(private history: any[],
-                private zones: ReadonlyMap<string, MockZone>) {}
+                private zones: ReadonlyMap<string, MockZone>,
+                private snapshotsMetadata: ReadonlyMap<string, any>) {}
     public zone(zone: string) {
         this.history.push(["Compute#zone", zone])
         return this.zones.get(zone)
+    }
+    public getSnapshots(configs) {
+        this.history.push(["Compute#getSnapshots", configs])
+        return Promise.resolve([Array.from(this.snapshotsMetadata).map((x) => new MockSnapshot(this.history, x[1]))])
     }
 }
 
 describe("GCP", () => {
     describe("Cloud", () => {
-        describe("#createInstance", () => {
+        describe("#prepareDisk", () => {
+            it("do nothing if the disk exists", async () => {
+                const history: any[] = []
+                const mockCompute = new MockCompute(history,
+                    new Map([
+                        ["zone", new MockZone(history,
+                                              new Map([["test", { selfLink: "link" }]]),
+                                              new Map([["test", {}]]),
+                                             )],
+                    ]),
+                    new Map())
+                const gcp = new Cloud(mockCompute)
+                await gcp.prepareDisk("test", "zone",
+                                      {diskNameLabelName: "x", diskTypeLabelName: "y", projectLabelName: "z"})
+                history.should.deep.equal([
+                    ["Compute#zone", "zone"],
+                    ["Zone#disk", "test"],
+                    ["Disk#exists"],
+                ])
+            })
+            it("restore the disk from the newest snapshot", async () => {
+                const history: any[] = []
+                const oldDate = new Date("2018/1/1")
+                const newDate = new Date("2019/1/1")
+                const mockCompute = new MockCompute(history,
+                    new Map([
+                        ["zone", new MockZone(history,
+                                              new Map([["test", null]]),
+                                              new Map([["test", {}]]),
+                                             )],
+                    ]),
+                    new Map([
+                        ["old", {
+                            creationTimestamp: `${oldDate}`,
+                            diskSizeGb: 32,
+                            labels: { x: "zone_test", y: "pd_standard", z: "project"},
+                            selfLink: "old",
+                        }],
+                        ["new", {
+                            creationTimestamp: `${newDate}`,
+                            diskSizeGb: 128,
+                            labels: { x: "zone_test", y: "pd_standard", z: "project"},
+                            selfLink: "new",
+                        }],
+                    ]))
+                const gcp = new Cloud(mockCompute, "http://test")
+                await gcp.prepareDisk("test", "zone",
+                                      {diskNameLabelName: "x", diskTypeLabelName: "y", projectLabelName: "z"})
+                history.should.deep.equal([
+                    ["Compute#zone", "zone"],
+                    ["Zone#disk", "test"],
+                    ["Disk#exists"],
+                    ["Compute#getSnapshots", {filter: `labels.x="zone_test"`}],
+                    ["Snapshot#getMetadata"], ["Snapshot#getMetadata"],
+                    ["Disk#create", {
+                        sizeGb: 128,
+                        sourceSnapshot: "new",
+                        type: "http://test/projects/project/zones/zone/diskTypes/pd_standard",
+                    }],
+                    ["Operation#promise"],
+                ])
+            })
+        })
+        describe("#createMachine", () => {
             it("create a VM and start it", async () => {
                 const history: any[] = []
                 const mockCompute = new MockCompute(history,
@@ -78,7 +165,8 @@ describe("GCP", () => {
                                               new Map([["test", { selfLink: "link" }]]),
                                               new Map([["test", {}]]),
                                              )],
-                    ]))
+                    ]),
+                    new Map())
                 const gcp = new Cloud(mockCompute)
                 await gcp.createMachine("test", "test", "zone", "n1-highmem-4", {})
                 history.should.deep.equal([
@@ -129,7 +217,8 @@ describe("GCP", () => {
                                               new Map([["test", { selfLink: "link" }]]),
                                               new Map([["test", {}]]),
                                              )],
-                    ]))
+                    ]),
+                    new Map())
                 const gcp = new Cloud(mockCompute)
                 await gcp.createMachine("test", "test", "zone", { vCPU: 24, memory: 100 }, {})
                 history.should.deep.equal([
@@ -180,7 +269,8 @@ describe("GCP", () => {
                                               new Map([["test", { selfLink: "link" }]]),
                                               new Map([["test", {}]]),
                                              )],
-                    ]))
+                    ]),
+                    new Map())
                 const gcp = new Cloud(mockCompute)
                 await gcp.createMachine("test", "test", "zone", "n1-highmem-4",
                                         { accelerators: [{ deviceType: "nvidia-tesla-k80", count: 1}] })
@@ -232,7 +322,8 @@ describe("GCP", () => {
                                               new Map([["test", { selfLink: "link" }]]),
                                               new Map([["test", {}]]),
                                              )],
-                    ]))
+                    ]),
+                    new Map())
                 const gcp = new Cloud(mockCompute)
                 await gcp.createMachine("test", "test", "zone", "n1-highmem-4",
                                         { tags: ["foo", "bar"] })
@@ -291,7 +382,8 @@ describe("GCP", () => {
                                                   }],
                                               }]]),
                                              )],
-                    ]))
+                    ]),
+                    new Map())
                 const gcp = new Cloud(mockCompute)
                 const result = await gcp.getPublicIpAddress("test", "zone")
                 result.should.equal("result")
@@ -303,14 +395,15 @@ describe("GCP", () => {
             })
         })
 
-        describe("#terminateInstance", () => {
+        describe("#terminateMachine", () => {
             it("stop a VM and delete it", async () => {
                 const history: any[] = []
                 const mockCompute = new MockCompute(history,
                     new Map([
                         ["zone", new MockZone(history,
                                               new Map(),
-                                              new Map([["test", {}]]))]]))
+                                              new Map([["test", {}]]))]]),
+                    new Map())
                 const gcp = new Cloud(mockCompute)
                 await gcp.terminateMachine("test", "zone")
                 history.should.deep.equal([
