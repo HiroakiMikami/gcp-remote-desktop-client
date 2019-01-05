@@ -3,7 +3,7 @@ import { IBackend } from "./backend"
 import { Configurations } from "./configurations"
 
 export interface IRemoteDesktop<Options> {
-   connect(hostname: string, options: Options): Promise<null>
+   connect(hostname: string, options: Options): Promise<void>
 }
 
 export type RemoteDesktopCommand =

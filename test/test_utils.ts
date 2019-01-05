@@ -43,7 +43,7 @@ describe("#retry", () => {
         try {
             await retry<number>(f, 0)
         } catch (err) {
-            return null
+            return
         }
         should.exist(null) // Failure
     })

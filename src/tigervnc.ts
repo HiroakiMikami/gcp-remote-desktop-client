@@ -5,7 +5,7 @@ import { Executable } from "./executable"
 import { collectAdditionalOptions } from "./utils"
 import { IVncViewer } from "./vnc_viewer"
 
-type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<null>
+type VncViewerCommand = (options: ReadonlyArray<string>) => Promise<void>
 
 export class VncViewer implements IVncViewer<any> {
     private vncViewerCommand: VncViewerCommand
@@ -17,7 +17,7 @@ export class VncViewer implements IVncViewer<any> {
             this.vncViewerCommand = vncViewerCommand
         }
     }
-    public async connect(port: number, options: any): Promise<null> {
+    public async connect(port: number, options: any): Promise<void> {
         const args = []
         for (const key of Object.keys(options)) {
             args.push(`-${key}`)
@@ -27,7 +27,6 @@ export class VncViewer implements IVncViewer<any> {
         }
         args.push(`::${port}`)
         await this.vncViewerCommand(args)
-        return null
     }
 }
 
@@ -40,7 +39,7 @@ export function buildVncViewer(command: Command, configs: Configurations): () =>
     return () => {
         const viewer = new VncViewer(command.vncviewer_path)
         return {
-            connect(port: number, _: void): Promise<null> {
+            connect(port: number, _: void): Promise<void> {
                 return viewer.connect(port, command.vncViewer)
             },
         }

@@ -18,7 +18,7 @@ export function collectAdditionalOptions(value: string, configs: any) {
     return configs
 }
 
-export async function backupFile(path: string): Promise<() => Promise<null>> {
+export async function backupFile(path: string): Promise<() => Promise<void>> {
     const exists = util.promisify(fs.exists)
     const readFile = util.promisify(fs.readFile)
     const writeFile = util.promisify(fs.writeFile)
@@ -37,11 +37,9 @@ export async function backupFile(path: string): Promise<() => Promise<null>> {
         if (originalFile === null) {
             logger.debug(`Delete ${path} because it did not exist when backuping`)
             await unlink(path)
-            return null
         } else {
             logger.debug(`Restore ${path}`)
             await writeFile(path, originalFile)
-            return null
         }
     }
 }
