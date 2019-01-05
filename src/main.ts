@@ -79,7 +79,8 @@ async function main() {
     logger.info(`config file: ${configPath}`)
     logger.info(`Load the global config file: ${configPath}`)
 
-    const machineName = `a${new Date().getTime().toString(16)}` // First character should be [a-z]
+    const date = new Date()
+    const machineName = `a${date.getTime().toString(16)}` // First character should be [a-z]
     logger.debug(`machine name ${machineName}`)
 
     const tmpConfigs = await load(configPath)
@@ -115,10 +116,10 @@ async function main() {
     try {
         /* Create VM */
         logger.info(`Create VM (${machineName})`)
-        await cloud.createMachine(machineName, name, null)
+        await cloud.createMachine(machineName, name)
         /* Get public IP address */
         logger.info(`Get public IP address of ${machineName}`)
-        const ip = await cloud.getPublicIpAddress(machineName, null)
+        const ip = await cloud.getPublicIpAddress(machineName)
         logger.info(`IP address: ${ip}`)
         /* Run remote-desktop application */
         await remoteDesktop.connect(ip, null)
@@ -127,8 +128,13 @@ async function main() {
     }
 
     /* Terimnate VM */
+    const snapshotName = `${name}-` +
+        `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}-` +
+        `${date.getTime().toString(16)}`
+    logger.debug(`snapshot name ${snapshotName}`)
+
     logger.info(`Terminate VM (${machineName})`)
-    return cloud.terminateMachine(machineName, null)
+    return cloud.terminateMachine(machineName, name, snapshotName)
 }
 
 main()

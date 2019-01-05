@@ -6,10 +6,29 @@ import { Configurations } from "./configurations"
 
 const logger = log4js.getLogger()
 
+function zoneToRegion(zone: string) {
+    const i = zone.lastIndexOf("-")
+    if (i === -1) {
+        return zone
+    }
+    return zone.substr(0, i)
+}
+
 function createDiskType(apiUrl: string, project: string, zone: string, diskType: string) {
     return `${apiUrl}/projects/${project}/zones/${zone}/diskTypes/${diskType}`
 }
 
+function parseDiskType(apiUrl: string, url: string) {
+    if (!url.startsWith(apiUrl)) {
+        throw new Error(`Invalid disk type: ${url}`)
+    }
+    const tokens = url.split("/")
+    return {
+        diskType: tokens[tokens.indexOf("diskTypes") + 1],
+        project: tokens[tokens.indexOf("projects") + 1],
+        zone: tokens[tokens.indexOf("zones") + 1],
+    }
+}
 export interface ICustumMachineType {
     /** required the number of CPUs */
     vCPU: number
@@ -86,6 +105,27 @@ export class Cloud {
             const op = await disk.create(configs)
             await op[1].promise()
         }
+
+        return null
+    }
+    public async createSnapshot(diskName: string, snapshotName: string, zone: string,
+                                options: ILabelOptions): Promise<null> {
+        const labels = {}
+        labels[options.diskNameLabelName] = `${zone}_${diskName}`
+        const disk = this.compute
+            .zone(zone)
+            .disk(diskName)
+
+        const [diskMetadata] = await disk.getMetadata()
+        const type = parseDiskType(this.apiUrl, diskMetadata.type)
+        labels[options.projectLabelName] = type.project
+        labels[options.diskTypeLabelName] = type.diskType
+
+        logger.info(`Create ${snapshotName} snapshot`)
+        const configs = { labels, storageLocations: [zoneToRegion(zone)] }
+        logger.debug(`configs: ${JSON.stringify(configs)}`)
+        const op = await disk.createSnapshot(snapshotName, configs)
+        await op[1].promise()
 
         return null
     }
@@ -220,6 +260,11 @@ export function buildCloud(command: Command, configs: Configurations) {
                 configs["snapshot-label-prefix"] || "gcp-remote-desktop-client")
     return () => {
         const cloud = new Cloud()
+        const labelOptions = {
+            diskNameLabelName: `${command.snapshotLabelPrefix}__name`,
+            diskTypeLabelName: `${command.snapshotLabelPrefix}__disk-type`,
+            projectLabelName: `${command.snapshotLabelPrefix}__project`,
+        }
         return {
             async createMachine(machineName: string, diskName: string): Promise<null> {
                 /* Get machine type */
@@ -238,11 +283,7 @@ export function buildCloud(command: Command, configs: Configurations) {
                     return Promise.reject(accelerators)
                 }
 
-                await cloud.prepareDisk(diskName, command.zone, {
-                    diskNameLabelName: `${command.snapshotLabelPrefix}__name`,
-                    diskTypeLabelName: `${command.snapshotLabelPrefix}__disk-type`,
-                    projectLabelName: `${command.snapshotLabelPrefix}__project`,
-                })
+                await cloud.prepareDisk(diskName, command.zone, labelOptions)
                 await cloud.createMachine(machineName, diskName, command.zone, machineType, {
                     accelerators,
                     preemptible: command.preemptible,
@@ -254,8 +295,11 @@ export function buildCloud(command: Command, configs: Configurations) {
             getPublicIpAddress(name: string): Promise<string> {
                 return cloud.getPublicIpAddress(name, command.zone)
             },
-            terminateMachine(name: string): Promise<null> {
-                return cloud.terminateMachine(name, command.zone)
+            async terminateMachine(machineName: string, diskName: string, snapshotName: string): Promise<null> {
+                await cloud.terminateMachine(machineName, command.zone)
+                await cloud.createSnapshot(diskName, snapshotName, command.zone, labelOptions)
+
+                return null
             },
         }
     }

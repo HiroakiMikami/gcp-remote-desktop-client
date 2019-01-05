@@ -29,6 +29,10 @@ class MockDisk {
         this.history.push(["Disk#create", configs])
         return Promise.resolve([null, new MockOperation(this.history)])
     }
+    public createSnapshot(name, configs) {
+        this.history.push(["Disk#createSnapshot", name, configs])
+        return Promise.resolve([null, new MockOperation(this.history)])
+    }
 }
 class MockSnapshot {
     constructor(private history: any[][], private metadata: any) {}
@@ -151,6 +155,38 @@ describe("GCP", () => {
                         sizeGb: 128,
                         sourceSnapshot: "new",
                         type: "http://test/projects/project/zones/zone/diskTypes/pd_standard",
+                    }],
+                    ["Operation#promise"],
+                ])
+            })
+        })
+        describe("#createSnapshot", () => {
+            it("create snapshot", async () => {
+                const history: any[] = []
+                const mockCompute = new MockCompute(history,
+                    new Map([
+                        ["zone", new MockZone(history,
+                                              new Map([["test", {
+                                                type: "http://test/projects/project/zones/zone/diskTypes/pd_standard",
+                                              }]]),
+                                              new Map([["test", {}]]),
+                                             )],
+                    ]),
+                    new Map())
+                const gcp = new Cloud(mockCompute, "http://test")
+                await gcp.createSnapshot("test", "snapshot", "zone",
+                                         {diskNameLabelName: "x", diskTypeLabelName: "y", projectLabelName: "z"})
+                history.should.deep.equal([
+                    ["Compute#zone", "zone"],
+                    ["Zone#disk", "test"],
+                    ["Disk#getMetadata"],
+                    ["Disk#createSnapshot", "snapshot", {
+                        labels: {
+                            x: "zone_test",
+                            y: "pd_standard",
+                            z: "project",
+                        },
+                        storageLocations: ["zone"],
                     }],
                     ["Operation#promise"],
                 ])
