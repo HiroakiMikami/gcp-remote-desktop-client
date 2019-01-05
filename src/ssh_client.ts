@@ -1,7 +1,7 @@
 import { Command } from "commander"
 import { Configurations } from "./configurations"
 
-export type OnExit = () => Promise<null>
+export type OnExit = () => Promise<void>
 
 export interface ISshClient<Options> {
     portForward(hostname: string, from: number, to: number, options: Options): Promise<OnExit>

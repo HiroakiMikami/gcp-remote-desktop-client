@@ -19,7 +19,7 @@ export class RemoteDesktop<SshOptions, VncViewerOptions>
      implements IRemoteDesktop<IOptions<SshOptions, VncViewerOptions>> {
     constructor(private sshClient: ISshClient<SshOptions>,
                 private vncViewer: IVncViewer<VncViewerOptions>) {}
-    public async connect(hostname: string, options: IOptions<SshOptions, VncViewerOptions>): Promise<null> {
+    public async connect(hostname: string, options: IOptions<SshOptions, VncViewerOptions>): Promise<void> {
         const logger = log4js.getLogger()
 
         let onExit: OnExit | null = null
@@ -52,7 +52,6 @@ export class RemoteDesktop<SshOptions, VncViewerOptions>
             logger.info(`Stop port forwarding`)
             onExit()
         }
-        return null
     }
 }
 

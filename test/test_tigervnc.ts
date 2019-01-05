@@ -34,7 +34,7 @@ describe("TigerVNC", () => {
                 try {
                     await command.connect(5901, {})
                 } catch (err) {
-                    return null
+                    return
                 }
                 should.exist(null) // Failure
             })

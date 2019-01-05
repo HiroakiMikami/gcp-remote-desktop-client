@@ -28,7 +28,7 @@ describe("OpenSSH", () => {
                 try {
                     await command.portForward("localhost", 22, 8022, {})
                 } catch (err) {
-                    return null
+                    return
                 }
                 should.exist(null) // Failure
             })

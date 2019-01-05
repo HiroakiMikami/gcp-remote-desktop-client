@@ -69,7 +69,7 @@ function compareSnapshotWithMetadata(a: [any, any], b: [any, any]) {
 
 export class Cloud {
     constructor(private compute: Compute = new Compute(), private apiUrl= "https://www.googleapis.com/compute/v1") {}
-    public async prepareDisk(diskName: string, zone: string, options: ILabelOptions): Promise<null> {
+    public async prepareDisk(diskName: string, zone: string, options: ILabelOptions): Promise<void> {
         const disk = this.compute.zone(zone).disk(diskName)
 
         const tmpExists = await disk.exists()
@@ -105,11 +105,9 @@ export class Cloud {
             const op = await disk.create(configs)
             await op[1].promise()
         }
-
-        return null
     }
     public async createSnapshot(diskName: string, snapshotName: string, zone: string,
-                                options: ILabelOptions): Promise<null> {
+                                options: ILabelOptions): Promise<void> {
         const labels = {}
         labels[options.diskNameLabelName] = `${zone}_${diskName}`
         const disk = this.compute
@@ -126,12 +124,10 @@ export class Cloud {
         logger.debug(`configs: ${JSON.stringify(configs)}`)
         const op = await disk.createSnapshot(snapshotName, configs)
         await op[1].promise()
-
-        return null
     }
     public async createMachine(machineName: string, diskName: string, zone: string,
                                machineType: string | ICustumMachineType,
-                               options: ICreateMachineOptions): Promise<null> {
+                               options: ICreateMachineOptions): Promise<void> {
         let machineTypeStr = ""
         if (isString(machineType)) {
             machineTypeStr = machineType
@@ -193,8 +189,6 @@ export class Cloud {
         logger.info(`Start VM(name="${machineName}")`)
         const op = await vm.start()
         await op[0].promise()
-
-        return null
     }
     public async getPublicIpAddress(machineName: string, zone: string): Promise<string> {
         const vm = this.compute.zone(zone).vm(machineName)
@@ -202,7 +196,7 @@ export class Cloud {
         const vmMetadata = tmpVmMetadata[0]
         return vmMetadata.networkInterfaces[0].accessConfigs[0].natIP
     }
-    public async terminateMachine(machineName: string, zone: string): Promise<null> {
+    public async terminateMachine(machineName: string, zone: string): Promise<void> {
         const vm = this.compute.zone(zone).vm(machineName)
 
         logger.info(`Stop VM(name="${machineName}")`)
@@ -212,8 +206,6 @@ export class Cloud {
         logger.info(`Delete VM(name="${machineName}")`)
         const op2 = await vm.delete()
         await op2[0].promise()
-
-        return null
     }
 }
 
@@ -266,7 +258,7 @@ export function buildCloud(command: Command, configs: Configurations) {
             projectLabelName: `${command.snapshotLabelPrefix}__project`,
         }
         return {
-            async createMachine(machineName: string, diskName: string): Promise<null> {
+            async createMachine(machineName: string, diskName: string): Promise<void> {
                 /* Get machine type */
                 let machineType: string | ICustumMachineType | null = null
                 if (command.machineType !== undefined) {
@@ -289,17 +281,13 @@ export function buildCloud(command: Command, configs: Configurations) {
                     preemptible: command.preemptible,
                     tags: command.tags,
                 })
-
-                return null
             },
             getPublicIpAddress(name: string): Promise<string> {
                 return cloud.getPublicIpAddress(name, command.zone)
             },
-            async terminateMachine(machineName: string, diskName: string, snapshotName: string): Promise<null> {
+            async terminateMachine(machineName: string, diskName: string, snapshotName: string): Promise<void> {
                 await cloud.terminateMachine(machineName, command.zone)
                 await cloud.createSnapshot(diskName, snapshotName, command.zone, labelOptions)
-
-                return null
             },
         }
     }
